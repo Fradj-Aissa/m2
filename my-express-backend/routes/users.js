@@ -25,11 +25,11 @@ router.get("/:uid", async (req, res) => {
 // POST /api/users
 router.post("/", async (req, res) => {
   try {
-    const { uid, email, name, phone, type = "renter" } = req.body;
+    const { uid, email, name, phone = "", type = "renter" } = req.body;
 
     // Validation
-    if (!uid || !email || !name || !phone) {
-      return res.status(400).json({ error: "Missing required fields: uid, email, name, phone" });
+    if (!uid || !email || !name) {
+      return res.status(400).json({ error: "Missing required fields: uid, email, name" });
     }
 
     const result = await db.query(
