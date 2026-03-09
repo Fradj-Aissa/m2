@@ -1,6 +1,73 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const multer = require("multer");
+const axios = require("axios");
+
+// Configure multer for memory storage
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Upload images to ImgBB
+ * POST /api/apartments/upload-images
+ * Expects: multipart/form-data with 'images' field containing multiple files
+ * Returns: { urls: ["https://i.ibb.co/...", ...] }
+ */
+router.post("/upload-images", upload.array("images"), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No images provided" });
+    }
+
+    const uploadedUrls = [];
+    const apiKey = process.env.IMGBB_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "ImgBB API key not configured" });
+    }
+
+    // Upload each image to ImgBB
+    for (const file of req.files) {
+      try {
+        // Convert buffer to base64
+        const base64Image = file.buffer.toString("base64");
+
+        // Create URLSearchParams for ImgBB
+        const params = new URLSearchParams();
+        params.append("image", base64Image);
+
+        // Send to ImgBB
+        const response = await axios.post(
+          `https://api.imgbb.com/1/upload?key=${apiKey}`,
+          params,
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+        );
+
+        // Extract URL from response
+        if (response.data.success && response.data.data.url) {
+          uploadedUrls.push(response.data.data.url);
+        } else {
+          throw new Error(`Failed to upload ${file.originalname}`);
+        }
+      } catch (error) {
+        console.error(`Error uploading ${file.originalname}:`, error.message);
+        return res.status(500).json({
+          error: `Failed to upload image: ${file.originalname}`,
+          details: error.message,
+        });
+      }
+    }
+
+    res.json({ urls: uploadedUrls });
+  } catch (err) {
+    console.error("Image upload error:", err);
+    res.status(500).json({ error: "Failed to upload images" });
+  }
+});
 
 // Get all apartments (with filters)
 // GET /api/apartments?wilayaId=&rooms=&minPrice=&maxPrice=&priceUnit=
