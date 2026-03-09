@@ -200,9 +200,9 @@ router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Try both UUID and firebase_id
+    // Try both UUID and firebase_id with explicit text cast
     const result = await db.query(
-      "SELECT * FROM apartments WHERE id = $1 OR firebase_id = $1",
+      "SELECT * FROM apartments WHERE id::text = $1 OR firebase_id = $1",
       [id]
     );
 
@@ -214,7 +214,7 @@ router.get("/:id", async (req, res) => {
 
     // Increment views counter
     await db.query(
-      "UPDATE apartments SET views = views + 1 WHERE id = $1",
+      "UPDATE apartments SET views = views + 1 WHERE id::text = $1",
       [apartment.id]
     );
 
@@ -386,7 +386,7 @@ router.put("/:id", async (req, res) => {
     updateValues.push(id);
 
     const query = `UPDATE apartments SET ${updateFields.join(", ")} 
-                   WHERE id = $${paramCount} OR firebase_id = $${paramCount}
+                   WHERE id::text = $${paramCount} OR firebase_id = $${paramCount}
                    RETURNING *`;
 
     const result = await db.query(query, updateValues);
@@ -414,7 +414,7 @@ router.patch("/:id/status", async (req, res) => {
     }
 
     const result = await db.query(
-      "UPDATE apartments SET is_active = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 OR firebase_id = $2 RETURNING *",
+      "UPDATE apartments SET is_active = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 OR firebase_id = $2 RETURNING *",
       [isActive, id]
     );
 
@@ -436,7 +436,7 @@ router.patch("/:id/phone-click", async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      "UPDATE apartments SET phone_clicks = phone_clicks + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1 OR firebase_id = $1 RETURNING *",
+      "UPDATE apartments SET phone_clicks = phone_clicks + 1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $1 OR firebase_id = $1 RETURNING *",
       [id]
     );
 
@@ -456,20 +456,35 @@ router.patch("/:id/phone-click", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    console.log("Deleting apartment:", id);
 
-    const result = await db.query(
-      "DELETE FROM apartments WHERE id = $1 OR firebase_id = $1 RETURNING *",
+    // Check if apartment exists (match by id::text or firebase_id for flexibility)
+    const check = await db.query(
+      "SELECT id, firebase_id FROM apartments WHERE id::text = $1 OR firebase_id = $1",
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (check.rows.length === 0) {
       return res.status(404).json({ error: "Apartment not found" });
     }
 
+    const apt_id = check.rows[0].id;
+    const firebase_id = check.rows[0].firebase_id;
+
+    // Delete favorites (using firebase_id since that's what favorites table references)
+    await db.query("DELETE FROM favorites WHERE apartment_id = $1", [firebase_id]);
+
+    // Delete apartment
+    const result = await db.query(
+      "DELETE FROM apartments WHERE id::text = $1 RETURNING *",
+      [apt_id]
+    );
+
+    console.log("✅ Deleted apartment:", apt_id);
     res.json({ message: "Apartment deleted successfully", apartment: result.rows[0] });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete apartment" });
+    console.error("❌ Delete error:", err.message);
+    res.status(500).json({ error: "Failed to delete apartment", msg: err.message });
   }
 });
 
