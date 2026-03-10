@@ -3,6 +3,7 @@ const db = require('./db'); // استيراد ملف الاتصال الذي أ�
 require('dotenv').config();
 
 // Import route modules
+const authRouter = require('./routes/auth');
 const apartmentsRouter = require('./routes/apartments');
 const usersRouter = require('./routes/users');
 const favoritesRouter = require('./routes/favorites');
@@ -38,6 +39,7 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/apartments', apartmentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/favorites', favoritesRouter);
@@ -49,5 +51,5 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 السيرفر يعمل على: http://localhost:${PORT}`);
+  console.log(`Server is running : http://localhost:${PORT}`);
 });

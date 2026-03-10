@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   uid VARCHAR(255) PRIMARY KEY,
   firebase_id VARCHAR(255) UNIQUE NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255),
   name VARCHAR(255) NOT NULL,
   phone VARCHAR(20) NOT NULL,
   type VARCHAR(50) NOT NULL CHECK (type IN ('renter', 'landlord')),

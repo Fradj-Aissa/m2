@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const multer = require("multer");
 const axios = require("axios");
+const authMiddleware = require("../middleware/authMiddleware");
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -13,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage() });
  * Expects: multipart/form-data with 'images' field containing multiple files
  * Returns: { urls: ["https://i.ibb.co/...", ...] }
  */
-router.post("/upload-images", upload.array("images"), async (req, res) => {
+router.post("/upload-images", authMiddleware, upload.array("images"), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "No images provided" });
@@ -261,7 +262,7 @@ router.get("/wilaya/:wilayaId", async (req, res) => {
 
 // Create new apartment
 // POST /api/apartments
-router.post("/", async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   try {
     const {
       title,
@@ -326,7 +327,7 @@ router.post("/", async (req, res) => {
 
 // Update apartment
 // PUT /api/apartments/:id
-router.put("/:id", async (req, res) => {
+router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -404,7 +405,7 @@ router.put("/:id", async (req, res) => {
 
 // Toggle apartment status
 // PATCH /api/apartments/:id/status
-router.patch("/:id/status", async (req, res) => {
+router.patch("/:id/status", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
@@ -453,7 +454,7 @@ router.patch("/:id/phone-click", async (req, res) => {
 
 // Delete apartment
 // DELETE /api/apartments/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     console.log("Deleting apartment:", id);
