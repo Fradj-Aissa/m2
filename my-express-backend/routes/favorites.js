@@ -2,7 +2,16 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// Get user's favorite apartment IDs
+// Helper: resolve apartment identifier to the firebase_id stored in favorites
+async function resolveApartmentFirebaseId(apartmentId) {
+  const result = await db.query(
+    `SELECT firebase_id FROM apartments WHERE id::text = $1 OR firebase_id = $1 LIMIT 1`,
+    [apartmentId]
+  );
+  return result.rows[0]?.firebase_id || null;
+}
+
+// Get user's favorite apartment IDs (returns firebase_ids)
 // GET /api/favorites/:userId
 router.get("/:userId", async (req, res) => {
   try {
@@ -33,7 +42,7 @@ router.get("/:userId/apartments", async (req, res) => {
     const result = await db.query(
       `SELECT a.* 
        FROM favorites f
-       JOIN apartments a ON f.apartment_id = a.firebase_id
+       JOIN apartments a ON f.apartment_id = a.firebase_id OR f.apartment_id = a.id::text
        WHERE f.user_id = $1
        ORDER BY f.created_at DESC`,
       [userId]
@@ -52,10 +61,18 @@ router.get("/:userId/check/:apartmentId", async (req, res) => {
   try {
     const { userId, apartmentId } = req.params;
 
+    const firebaseId = await resolveApartmentFirebaseId(apartmentId);
+    if (!firebaseId) {
+      return res.json({ isFavorited: false, favoriteId: null });
+    }
+
     const result = await db.query(
       `SELECT id FROM favorites 
-       WHERE user_id = $1 AND apartment_id = $2`,
-      [userId, apartmentId]
+       WHERE user_id = $1 AND (
+         apartment_id = $2 OR firebase_id = $2 OR
+         apartment_id = $3 OR firebase_id = $3
+       )`,
+      [userId, apartmentId, firebaseId]
     );
 
     const isFavorited = result.rows.length > 0;
@@ -76,14 +93,9 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields: userId, apartmentId" });
     }
 
-    // Check if apartment exists
-    const apartmentCheck = await db.query(
-      `SELECT id FROM apartments 
-       WHERE firebase_id = $1`,
-      [apartmentId]
-    );
-
-    if (apartmentCheck.rows.length === 0) {
+    // Resolve apartment firebase_id (supports both uuid and firebase_id)
+    const firebaseId = await resolveApartmentFirebaseId(apartmentId);
+    if (!firebaseId) {
       return res.status(404).json({ error: "Apartment not found" });
     }
 
@@ -97,10 +109,13 @@ router.post("/", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if already favorited
+    // Check if already favorited (supports uuid or firebase_id)
     const existing = await db.query(
-      `SELECT id FROM favorites WHERE user_id = $1 AND apartment_id = $2`,
-      [userId, apartmentId]
+      `SELECT id FROM favorites WHERE user_id = $1 AND (
+         apartment_id = $2 OR firebase_id = $2 OR
+         apartment_id = $3 OR firebase_id = $3
+       )`,
+      [userId, apartmentId, firebaseId]
     );
 
     if (existing.rows.length > 0) {
@@ -114,7 +129,7 @@ router.post("/", async (req, res) => {
       `INSERT INTO favorites (user_id, apartment_id, firebase_id)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [userId, apartmentId, `temp_${Date.now()}`]
+      [userId, apartmentId, firebaseId]
     );
 
     res.status(201).json(result.rows[0]);
@@ -130,11 +145,20 @@ router.delete("/:userId/:apartmentId", async (req, res) => {
   try {
     const { userId, apartmentId } = req.params;
 
+    // Resolve to firebase_id (supports uuid or firebase_id)
+    const firebaseId = await resolveApartmentFirebaseId(apartmentId);
+    if (!firebaseId) {
+      return res.status(404).json({ error: "Apartment not found" });
+    }
+
     const result = await db.query(
       `DELETE FROM favorites 
-       WHERE user_id = $1 AND apartment_id = $2
+       WHERE user_id = $1 AND (
+         apartment_id = $2 OR firebase_id = $2 OR
+         apartment_id = $3 OR firebase_id = $3
+       )
        RETURNING *`,
-      [userId, apartmentId]
+      [userId, apartmentId, firebaseId]
     );
 
     if (result.rows.length === 0) {
