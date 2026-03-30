@@ -129,7 +129,7 @@ router.post("/", async (req, res) => {
       `INSERT INTO favorites (user_id, apartment_id, firebase_id)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [userId, apartmentId, firebaseId]
+      [userId, firebaseId, null]
     );
 
     res.status(201).json(result.rows[0]);

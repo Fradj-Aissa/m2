@@ -1,0 +1,15 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "show datebase",
+            "password": "0657",
+            "username": "postgres",
+            "database": "smartrent_db"
+        }
+    ]
+}
