@@ -3,6 +3,194 @@ const router = express.Router();
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const authMiddleware = require("../middleware/authMiddleware");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+async function hasColumn(table, column) {
+  const result = await db.query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1
+       AND column_name = $2
+     LIMIT 1`,
+    [table, column]
+  );
+  return result.rows.length > 0;
+}
+
+async function handleGoogleAuth(req, res) {
+  try {
+    console.log("Google auth env:", {
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      DATABASE_URL: process.env.DATABASE_URL,
+    });
+
+    const { idToken, token, mode = "login", account_type, type } = req.body;
+    const idTokenToVerify = idToken || token;
+    const requestedAccountType = account_type || type || "renter";
+
+    const normalizedAccountType =
+      requestedAccountType === "owner" || requestedAccountType === "landlord"
+        ? "owner"
+        : "renter";
+    const legacyTypeValue = normalizedAccountType === "owner" ? "landlord" : "renter";
+
+    if (!idTokenToVerify) {
+      return res.status(400).json({ error: "Missing required field: idToken" });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: idTokenToVerify,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.email) {
+      return res.status(400).json({ error: "Invalid Google token payload" });
+    }
+
+    const email = payload.email;
+    const googleId = payload.sub;
+    const name = payload.name || "";
+    const picture = payload.picture || "";
+
+    const googleIdExists = await hasColumn("users", "google_id");
+    const profilePicExists = await hasColumn("users", "profile_pic");
+    const accountTypeExists = await hasColumn("users", "account_type");
+    const typeColumnExists = await hasColumn("users", "type");
+
+    const selectColumns = [
+      "uid",
+      "email",
+      "name",
+      "phone",
+      "created_at",
+      "firebase_id",
+      ...(googleIdExists ? ["google_id"] : []),
+      ...(profilePicExists ? ["profile_pic"] : []),
+    ];
+
+    if (accountTypeExists && typeColumnExists) {
+      selectColumns.push("account_type", "type");
+    } else if (accountTypeExists) {
+      selectColumns.push("account_type", "account_type AS type");
+    } else if (typeColumnExists) {
+      selectColumns.push("type", "type AS account_type");
+    }
+
+    const selectColumnsString = selectColumns.join(", ");
+
+    const userResult = await db.query(
+      `SELECT ${selectColumnsString} FROM users WHERE email = $1`,
+      [email]
+    );
+
+    let user;
+    const isNewUser = userResult.rows.length === 0;
+
+    if (userResult.rows.length > 0) {
+      user = userResult.rows[0];
+      const updateParts = [];
+      const updateParams = [];
+
+      if (googleIdExists) {
+        updateParts.push(`google_id = $${updateParams.length + 1}`);
+        updateParams.push(googleId);
+      }
+      if (profilePicExists) {
+        updateParts.push(`profile_pic = $${updateParams.length + 1}`);
+        updateParams.push(picture);
+      }
+      if (accountTypeExists) {
+        updateParts.push(`account_type = $${updateParams.length + 1}`);
+        updateParams.push(normalizedAccountType);
+      }
+      if (typeColumnExists) {
+        updateParts.push(`type = $${updateParams.length + 1}`);
+        updateParams.push(legacyTypeValue);
+      }
+
+      if (updateParts.length > 0) {
+        updateParams.push(user.uid);
+        await db.query(
+          `UPDATE users SET ${updateParts.join(", ")} WHERE uid = $${updateParams.length}`,
+          updateParams
+        );
+      }
+    } else if (mode === "login") {
+      return res.status(404).json({
+        error: "No Google account found. Please register first.",
+      });
+    } else {
+      const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const insertColumns = ["uid", "firebase_id", "email", "name", "phone"];
+      const insertValues = [uid, uid, email, name, ""];
+
+      if (typeColumnExists) {
+        insertColumns.push("type");
+        insertValues.push(legacyTypeValue);
+      }
+      if (accountTypeExists) {
+        insertColumns.push("account_type");
+        insertValues.push(normalizedAccountType);
+      }
+      if (googleIdExists) {
+        insertColumns.push("google_id");
+        insertValues.push(googleId);
+      }
+      if (profilePicExists) {
+        insertColumns.push("profile_pic");
+        insertValues.push(picture);
+      }
+
+      const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
+      const returningColumns = insertColumns.join(", ");
+
+      const insertResult = await db.query(
+        `INSERT INTO users (${insertColumns.join(", ")})
+         VALUES (${placeholders})
+         RETURNING ${returningColumns}`,
+        insertValues
+      );
+      user = insertResult.rows[0];
+    }
+
+    user.account_type = user.account_type || user.type || "renter";
+    user.type = user.type || user.account_type;
+    const requiresCompleteProfile = !user.phone;
+
+    const jwtToken = jwt.sign(
+      { uid: user.uid, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Authentication successful",
+      user,
+      token: jwtToken,
+      requiresCompleteProfile,
+      isNewUser,
+    });
+  } catch (err) {
+    console.error("Google auth error:", err);
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error("GOOGLE_CLIENT_ID is not set in environment variables.");
+    }
+    if (!process.env.DATABASE_URL) {
+      console.log("DATABASE_URL is not set. Using individual DB env vars.");
+    }
+
+    res.status(500).json({
+      error: "Failed to authenticate with Google",
+      details: err?.message || err,
+    });
+  }
+}
 
 /**
  * Register a new user
@@ -11,7 +199,14 @@ const jwt = require("jsonwebtoken");
  */
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, name, phone = "", type = "renter" } = req.body;
+    const { email, password, name, phone = "", account_type, type } = req.body;
+    const requestedAccountType = account_type || type || "renter";
+
+    const normalizedAccountType =
+      requestedAccountType === "owner" || requestedAccountType === "landlord"
+        ? "owner"
+        : "renter";
+    const legacyTypeValue = normalizedAccountType === "owner" ? "landlord" : "renter";
 
     // Validation
     if (!email || !password || !name) {
@@ -45,11 +240,28 @@ router.post("/register", async (req, res) => {
     const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Create user in database
+    const accountTypeExists = await hasColumn("users", "account_type");
+    const typeColumnExists = await hasColumn("users", "type");
+    const insertColumns = ["uid", "firebase_id", "email", "password", "name", "phone"];
+    const insertValues = [uid, uid, email, hashedPassword, name, phone];
+
+    if (typeColumnExists) {
+      insertColumns.push("type");
+      insertValues.push(legacyTypeValue);
+    }
+    if (accountTypeExists) {
+      insertColumns.push("account_type");
+      insertValues.push(normalizedAccountType);
+    }
+
+    const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
+    const returningColumns = ["uid", "email", "name", "phone", ...(typeColumnExists ? ["type"] : []), ...(accountTypeExists ? ["account_type"] : []), "created_at"].join(", ");
+
     const result = await db.query(
-      `INSERT INTO users (uid, firebase_id, email, password, name, phone, type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING uid, email, name, phone, type, created_at`,
-      [uid, uid, email, hashedPassword, name, phone, type]
+      `INSERT INTO users (${insertColumns.join(", ")})
+       VALUES (${placeholders})
+       RETURNING ${returningColumns}`,
+      insertValues
     );
 
     const user = result.rows[0];
@@ -65,6 +277,7 @@ router.post("/register", async (req, res) => {
       message: "User registered successfully",
       user,
       token,
+      requiresCompleteProfile: false,
     });
   } catch (err) {
     console.error("Registration error:", err);
@@ -88,10 +301,22 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    const accountTypeExists = await hasColumn("users", "account_type");
+    const typeColumnExists = await hasColumn("users", "type");
+    const selectColumns = [
+      "uid",
+      "email",
+      "password",
+      "name",
+      "phone",
+      "created_at",
+      ...(accountTypeExists ? ["account_type"] : []),
+      ...(typeColumnExists ? ["type"] : []),
+    ].join(", ");
+
     // Find user by email
     const result = await db.query(
-      `SELECT uid, email, password, name, phone, type, created_at 
-       FROM users WHERE email = $1`,
+      `SELECT ${selectColumns} FROM users WHERE email = $1`,
       [email]
     );
 
@@ -102,6 +327,7 @@ router.post("/login", async (req, res) => {
     }
 
     const user = result.rows[0];
+    const accountType = user.account_type || user.type || "renter";
 
     // Verify password
     const passwordMatch = await bcrypt.compare(password, user.password);
@@ -121,15 +347,123 @@ router.post("/login", async (req, res) => {
 
     // Return user without password
     const { password: _, ...userWithoutPassword } = user;
+    userWithoutPassword.account_type = accountType;
 
     res.json({
       message: "Login successful",
       user: userWithoutPassword,
       token,
+      requiresCompleteProfile: !user.phone || !user.password,
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Failed to login" });
+  }
+});
+
+/**
+ * Google OAuth authentication
+ * POST /api/auth/google
+ * Body: { idToken, mode, account_type }
+ */
+router.post("/google", handleGoogleAuth);
+router.post("/google-login", handleGoogleAuth);
+
+/**
+ * Complete user profile for Google signups
+ * POST /api/auth/complete-profile
+ * Headers: Authorization: Bearer <token>
+ * Body: { password, phone, account_type }
+ */
+router.post("/complete-profile", authMiddleware, async (req, res) => {
+  try {
+    console.log("Complete Profile Request - Body:", req.body);
+    console.log("Complete Profile Request - User:", req.user);
+
+    const { password, phone, account_type } = req.body;
+    const uid = req.user?.uid;
+
+    if (!uid) {
+      console.error("Missing uid in req.user");
+      return res.status(401).json({ error: "Unauthorized - missing user ID" });
+    }
+
+    if (!password && !phone) {
+      return res.status(400).json({ error: "Password or phone number is required" });
+    }
+
+    if (password && password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+
+    // Hash password if provided
+    let hashedPassword = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    // Build update query dynamically
+    const updateFields = [];
+    const queryValues = [];
+    let paramIndex = 1;
+
+    if (phone) {
+      updateFields.push(`phone = $${paramIndex}`);
+      queryValues.push(phone);
+      paramIndex++;
+    }
+
+    if (hashedPassword) {
+      updateFields.push(`password = $${paramIndex}`);
+      queryValues.push(hashedPassword);
+      paramIndex++;
+    }
+
+    if (account_type) {
+      const normalizedType = account_type === "owner" || account_type === "landlord" ? "owner" : "renter";
+      updateFields.push(`account_type = $${paramIndex}`);
+      queryValues.push(normalizedType);
+      paramIndex++;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    // Add uid to query values
+    queryValues.push(uid);
+    const uidParamIndex = paramIndex;
+
+    // Execute update
+    const updateQuery = `UPDATE users 
+      SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP 
+      WHERE uid = $${uidParamIndex} 
+      RETURNING uid, email, name, phone, type, account_type, created_at`;
+
+    console.log("Update Query:", updateQuery);
+    console.log("Query Values:", queryValues);
+
+    const result = await db.query(updateQuery, queryValues);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const updatedUser = result.rows[0];
+    updatedUser.account_type = updatedUser.account_type || updatedUser.type;
+
+    res.json({
+      message: "Profile completed successfully",
+      user: updatedUser,
+      requiresCompleteProfile: false,
+    });
+  } catch (err) {
+    console.error("Complete profile error:", err);
+    console.error("Full Database Error:", err);
+    res.status(500).json({ 
+      error: "Failed to complete profile",
+      details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
   }
 });
 
