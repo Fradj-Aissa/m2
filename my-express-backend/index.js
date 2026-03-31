@@ -7,6 +7,7 @@ const authRouter = require('./routes/auth');
 const apartmentsRouter = require('./routes/apartments');
 const usersRouter = require('./routes/users');
 const favoritesRouter = require('./routes/favorites');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 app.use(express.json());
@@ -45,6 +46,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/apartments', apartmentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/favorites', favoritesRouter);
+app.use('/api/admin', adminRouter);
 
 // 404 handler
 app.use((req, res) => {

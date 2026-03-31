@@ -1,0 +1,300 @@
+// Admin Routes Template
+// File: my-express-backend/routes/admin.js
+
+const express = require("express");
+const db = require("../db");
+const authMiddleware = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+/**
+ * Middleware to verify user is admin
+ * TODO: Add 'role' column to users table first
+ */
+const adminOnly = async (req, res, next) => {
+  try {
+    const userId = req.user.uid; // Set by authMiddleware
+    
+    // TODO: Query user's role and verify it's "admin"
+    // const user = await db.query("SELECT role FROM users WHERE uid = $1", [userId]);
+    // if (!user.rows[0] || user.rows[0].role !== "admin") {
+    //   return res.status(403).json({ error: "Unauthorized: Admin access required" });
+    // }
+    
+    next();
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+/**
+ * GET /api/admin/stats
+ * Returns system statistics
+ * 
+ * Response:
+ * {
+ *   totalUsers: number,
+ *   totalProperties: number,
+ *   activeSubscriptions: number,
+ *   pendingApprovals: number
+ * }
+ */
+router.get("/stats", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    // Get total users
+    const usersResult = await db.query("SELECT COUNT(*) as count FROM users");
+    const totalUsers = parseInt(usersResult.rows[0].count);
+
+    // Get total properties
+    const propertiesResult = await db.query(
+      "SELECT COUNT(*) as count FROM apartments"
+    );
+    const totalProperties = parseInt(propertiesResult.rows[0].count);
+
+    // Get pending approvals
+    const pendingResult = await db.query(
+      "SELECT COUNT(*) as count FROM apartments WHERE status = 'pending'"
+    );
+    const pendingApprovals = parseInt(pendingResult.rows[0].count);
+
+    // TODO: Get active subscriptions from subscriptions table
+    const activeSubscriptions = 0;
+
+    res.json({
+      totalUsers,
+      totalProperties,
+      activeSubscriptions,
+      pendingApprovals,
+    });
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    res.status(500).json({ error: "Failed to fetch statistics" });
+  }
+});
+
+/**
+ * GET /api/admin/users
+ * Returns all users
+ * 
+ * Response: User[]
+ * {
+ *   uid: string,
+ *   name: string,
+ *   email: string,
+ *   type: "renter" | "landlord",
+ *   phone: string,
+ *   created_at: timestamp,
+ *   status?: "active" | "inactive" | "blocked"
+ * }
+ */
+router.get("/users", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        uid, 
+        name, 
+        email, 
+        type, 
+        phone, 
+        created_at
+       FROM users 
+       ORDER BY created_at DESC`
+    );
+
+    const users = result.rows.map((user) => ({
+      ...user,
+      status: "active", // TODO: Add status column to users table
+    }));
+
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:uid
+ * Delete a user by UID
+ */
+router.delete("/users/:uid", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    // Prevent deleting self
+    if (uid === req.user.uid) {
+      return res
+        .status(400)
+        .json({ error: "Cannot delete your own account" });
+    }
+
+    // Delete user and related data (cascading deletes handled by DB)
+    const result = await db.query("DELETE FROM users WHERE uid = $1 RETURNING *", [
+      uid,
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ message: "User deleted successfully", user: result.rows[0] });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+/**
+ * GET /api/admin/properties
+ * Returns all properties
+ * 
+ * Response: Property[]
+ * {
+ *   id: string,
+ *   title: string,
+ *   description: string,
+ *   price: number,
+ *   wilaya: string,
+ *   landlord_name: string,
+ *   status: "pending" | "approved" | "rejected",
+ *   created_at: timestamp
+ * }
+ */
+router.get("/properties", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        id,
+        title,
+        description,
+        price,
+        wilaya,
+        landlord_name,
+        status,
+        created_at
+       FROM apartments
+       ORDER BY created_at DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching properties:", error);
+    res.status(500).json({ error: "Failed to fetch properties" });
+  }
+});
+
+/**
+ * PUT /api/admin/properties/:id/approve
+ * Approve a property
+ */
+router.put(
+  "/properties/:id/approve",
+  authMiddleware,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const result = await db.query(
+        "UPDATE apartments SET status = 'approved' WHERE id = $1 RETURNING *",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      res.json({
+        message: "Property approved successfully",
+        property: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error approving property:", error);
+      res.status(500).json({ error: "Failed to approve property" });
+    }
+  }
+);
+
+/**
+ * PUT /api/admin/properties/:id/reject
+ * Reject a property
+ */
+router.put(
+  "/properties/:id/reject",
+  authMiddleware,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const result = await db.query(
+        "UPDATE apartments SET status = 'rejected' WHERE id = $1 RETURNING *",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Property not found" });
+      }
+
+      res.json({
+        message: "Property rejected successfully",
+        property: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error rejecting property:", error);
+      res.status(500).json({ error: "Failed to reject property" });
+    }
+  }
+);
+
+module.exports = router;
+
+/*
+INTEGRATION STEPS:
+
+1. Add this to your main Express app (index.js):
+   ```
+   const adminRoutes = require('./routes/admin');
+   app.use('/api/admin', adminRoutes);
+   ```
+
+2. Add role column to users table:
+   ```sql
+   ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('user', 'admin'));
+   CREATE INDEX idx_users_role ON users(role);
+   
+   -- Set your test user as admin
+   UPDATE users SET role = 'admin' WHERE email = 'your-admin-email@example.com';
+   ```
+
+3. Update AuthContext to include role field
+
+4. Update AdminRoute component to check userData.role
+
+5. Test all endpoints using:
+   - Postman
+   - Thunder Client
+   - Or the admin dashboard UI
+
+EXAMPLE REQUESTS:
+
+Get Stats:
+GET http://localhost:5000/api/admin/stats
+Authorization: Bearer YOUR_JWT_TOKEN
+
+Get All Users:
+GET http://localhost:5000/api/admin/users
+Authorization: Bearer YOUR_JWT_TOKEN
+
+Delete User:
+DELETE http://localhost:5000/api/admin/users/USER_UID
+Authorization: Bearer YOUR_JWT_TOKEN
+
+Approve Property:
+PUT http://localhost:5000/api/admin/properties/PROPERTY_ID/approve
+Authorization: Bearer YOUR_JWT_TOKEN
+
+Reject Property:
+PUT http://localhost:5000/api/admin/properties/PROPERTY_ID/reject
+Authorization: Bearer YOUR_JWT_TOKEN
+*/

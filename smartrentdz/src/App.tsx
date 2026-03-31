@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ApartmentDetail from "./pages/ApartmentDetail";
@@ -22,6 +23,13 @@ import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import Welcome from "./pages/Welcome";
 import NotFound from "./pages/NotFound";
+// Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProperties from "./pages/admin/AdminProperties";
+import AdminReviews from "./pages/admin/AdminReviews";
+import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +92,57 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
+
+            {/* Admin Routes - Protected with AdminRoute */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/properties"
+              element={
+                <AdminRoute>
+                  <AdminProperties />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/reviews"
+              element={
+                <AdminRoute>
+                  <AdminReviews />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/subscriptions"
+              element={
+                <AdminRoute>
+                  <AdminSubscriptions />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/settings"
+              element={
+                <AdminRoute>
+                  <AdminSettingsPage />
+                </AdminRoute>
+              }
+            />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
