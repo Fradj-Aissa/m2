@@ -34,6 +34,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ApartmentCard from "@/components/ApartmentCard";
+import ReviewSection from "@/components/ReviewSection";
 import { Apartment } from "@/services/apartmentService";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -452,6 +453,11 @@ const ApartmentDetail = () => {
               </div>
             </div>
           )}
+
+          <ReviewSection
+            apartmentId={apartment.firebase_id || apartment.id}
+            ownerId={apartment.landlord_id || ''}
+          />
         </div>
       </main>
 

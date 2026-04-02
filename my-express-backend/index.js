@@ -8,6 +8,7 @@ const apartmentsRouter = require('./routes/apartments');
 const usersRouter = require('./routes/users');
 const favoritesRouter = require('./routes/favorites');
 const adminRouter = require('./routes/admin');
+const reviewsRouter = require('./routes/reviews');
 
 const app = express();
 app.use(express.json());
@@ -47,6 +48,7 @@ app.use('/api/apartments', apartmentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/favorites', favoritesRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/reviews', reviewsRouter);
 
 // 404 handler
 app.use((req, res) => {
