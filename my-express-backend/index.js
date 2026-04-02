@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const db = require('./db'); // استيراد ملف الاتصال الذي أنشأناه
 require('dotenv').config();
 
@@ -56,6 +58,29 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running : http://localhost:${PORT}`);
-});
+
+async function initializeDatabase() {
+  try {
+    const filePath = path.resolve(__dirname, 'init-db.sql');
+    const sql = fs.readFileSync(filePath, 'utf-8');
+    await db.query(sql);
+    console.log('Database tables checked/created successfully.');
+  } catch (error) {
+    console.error('Database initialization failed:', error);
+    throw error;
+  }
+}
+
+async function startServer() {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server is running : http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Unable to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
