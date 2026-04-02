@@ -110,6 +110,104 @@ router.delete('/users/:id', authMiddleware, isAdmin, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/reviews
+ * Returns all reviews with apartment name and reviewer name
+ */
+router.get('/reviews', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    let result;
+    try {
+      result = await db.query(
+        `SELECT
+           r.id,
+           r.apartment_id,
+           COALESCE(a.title, 'Unknown Apartment') AS apartment_name,
+           r.renter_id,
+           COALESCE(u.name, 'Unknown Reviewer') AS renter_name,
+           r.rating,
+           r.comment,
+           r.report_count,
+           r.is_flagged,
+           r.created_at
+         FROM reviews r
+         LEFT JOIN apartments a ON a.firebase_id = r.apartment_id
+         LEFT JOIN users u ON u.uid = r.renter_id
+         ORDER BY r.created_at DESC`
+      );
+    } catch (queryError) {
+      console.error('SQL query error for admin reviews GET:', queryError);
+      return res.status(500).json({ error: 'Database query failed fetching admin reviews' });
+    }
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Unexpected error in admin reviews GET:', error);
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+/**
+ * DELETE /api/admin/reviews/:id
+ * Delete a review by its id
+ */
+router.delete('/reviews/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      'DELETE FROM reviews WHERE id = $1 RETURNING id, apartment_id',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    res.json({ message: 'Review deleted successfully', review: result.rows[0] });
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+/**
+ * PATCH /api/admin/reviews/:id/flag
+ * Toggle is_flagged or reset report_count
+ * body: { action: 'toggle' | 'reset' }
+ */
+router.patch('/reviews/:id/flag', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    if (!action || !['toggle', 'reset'].includes(action)) {
+      return res.status(400).json({ error: 'action is required and must be toggle or reset' });
+    }
+
+    let sql;
+    let params;
+
+    if (action === 'toggle') {
+      sql = 'UPDATE reviews SET is_flagged = NOT is_flagged WHERE id = $1 RETURNING *';
+      params = [id];
+    } else {
+      sql = 'UPDATE reviews SET report_count = 0, is_flagged = FALSE WHERE id = $1 RETURNING *';
+      params = [id];
+    }
+
+    const updateResult = await db.query(sql, params);
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    res.json({ message: 'Review updated', review: updateResult.rows[0] });
+  } catch (error) {
+    console.error('Error updating review flag:', error);
+    res.status(500).json({ error: 'Failed to update review' });
+  }
+});
+
+/**
  * GET /api/admin/properties
  * Returns all properties/apartments
  */

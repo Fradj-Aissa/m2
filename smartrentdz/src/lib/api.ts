@@ -6,7 +6,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
 
 /**
  * Create axios instance with JWT interceptor
@@ -57,9 +57,10 @@ export async function apiCall<T>(
   data?: unknown
 ): Promise<T> {
   try {
+    const normalizedUrl = endpoint.replace(/^\/+/, '');
     const response = await axiosInstance({
       method,
-      url: endpoint,
+      url: normalizedUrl,
       data,
     });
     return response.data as T;
