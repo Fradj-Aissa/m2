@@ -185,9 +185,6 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" size="icon">
-                <Bell className="h-4 w-4" />
-              </Button>
               <Button variant="outline" asChild>
                 <Link to="/settings">
                   <Settings className="h-4 w-4 ml-2" />

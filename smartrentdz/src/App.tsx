@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SocketProvider } from "@/contexts/SocketContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
@@ -23,7 +24,6 @@ import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import Welcome from "./pages/Welcome";
 import NotFound from "./pages/NotFound";
-// Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProperties from "./pages/admin/AdminProperties";
@@ -36,118 +36,118 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/apartment/:id" element={<ApartmentDetail />} />
-            <Route path="/favorites" element={<Favorites />} />
-            <Route path="/subscription" element={<Subscription />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/welcome" element={<Welcome />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add-apartment"
-              element={
-                <ProtectedRoute requiredType="landlord">
-                  <AddApartment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/edit-apartment/:id"
-              element={
-                <ProtectedRoute requiredType="landlord">
-                  <EditApartment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/complete-profile"
-              element={
-                <ProtectedRoute>
-                  <CompleteProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/about" element={<About />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/contact" element={<Contact />} />
+      <SocketProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/search" element={<Search />} />
+              <Route path="/apartment/:id" element={<ApartmentDetail />} />
+              <Route path="/favorites" element={<Favorites />} />
+              <Route path="/subscription" element={<Subscription />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/welcome" element={<Welcome />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-apartment"
+                element={
+                  <ProtectedRoute requiredType="landlord">
+                    <AddApartment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-apartment/:id"
+                element={
+                  <ProtectedRoute requiredType="landlord">
+                    <EditApartment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/complete-profile"
+                element={
+                  <ProtectedRoute>
+                    <CompleteProfile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/contact" element={<Contact />} />
 
-            {/* Admin Routes - Protected with AdminRoute */}
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminDashboard />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/users"
-              element={
-                <AdminRoute>
-                  <AdminUsers />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/properties"
-              element={
-                <AdminRoute>
-                  <AdminProperties />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/reviews"
-              element={
-                <AdminRoute>
-                  <AdminReviews />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/subscriptions"
-              element={
-                <AdminRoute>
-                  <AdminSubscriptions />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/settings"
-              element={
-                <AdminRoute>
-                  <AdminSettingsPage />
-                </AdminRoute>
-              }
-            />
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminRoute>
+                    <AdminUsers />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/properties"
+                element={
+                  <AdminRoute>
+                    <AdminProperties />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/reviews"
+                element={
+                  <AdminRoute>
+                    <AdminReviews />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/subscriptions"
+                element={
+                  <AdminRoute>
+                    <AdminSubscriptions />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <AdminRoute>
+                    <AdminSettingsPage />
+                  </AdminRoute>
+                }
+              />
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SocketProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

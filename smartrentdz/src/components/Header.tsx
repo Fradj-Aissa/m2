@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Home, Heart, User, Menu, X, LogOut, Building2, Settings } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import NotificationBell from "@/components/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +29,6 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-hero">
             <Home className="h-5 w-5 text-primary-foreground" />
@@ -36,41 +36,41 @@ const Header = () => {
           <span className="text-xl font-bold text-primary">اجرلي</span>
         </Link>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            to="/search" 
+          <Link
+            to="/search"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             تصفح الشقق
           </Link>
-          <Link 
-            to="/favorites" 
+          <Link
+            to="/favorites"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             المفضلة
           </Link>
-          <Link 
-            to="/subscription" 
+          <Link
+            to="/subscription"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             الاشتراكات
           </Link>
         </nav>
 
-        {/* Desktop Actions */}
         <div className="hidden md:flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
             <Link to="/favorites">
               <Heart className="h-5 w-5" />
             </Link>
           </Button>
-          
+
+          {currentUser ? <NotificationBell /> : null}
+
           {currentUser ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
-                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
                     <span className="text-xs font-bold text-primary">
                       {userData?.name?.charAt(0) || "م"}
                     </span>
@@ -98,7 +98,10 @@ const Header = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 cursor-pointer text-destructive"
+                >
                   <LogOut className="h-4 w-4" />
                   تسجيل الخروج
                 </DropdownMenuItem>
@@ -116,18 +119,18 @@ const Header = () => {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          {currentUser ? <NotificationBell /> : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen((current) => !current)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden border-t bg-card animate-fade-in">
           <nav className="container py-4 flex flex-col gap-2">
@@ -147,7 +150,7 @@ const Header = () => {
               <Heart className="h-5 w-5 text-muted-foreground" />
               <span className="font-medium">المفضلة</span>
             </Link>
-            
+
             {currentUser ? (
               <>
                 <Link
@@ -167,9 +170,9 @@ const Header = () => {
                   <span className="font-medium">الإعدادات</span>
                 </Link>
                 <button
-                  className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-destructive w-full text-right"
+                  className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-right text-destructive transition-colors hover:bg-muted"
                   onClick={() => {
-                    handleLogout();
+                    void handleLogout();
                     setIsMenuOpen(false);
                   }}
                 >

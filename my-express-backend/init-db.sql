@@ -1,6 +1,15 @@
 -- my-express-backend/init-db.sql
 
--- Users table
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+DO $$
+BEGIN
+  CREATE TYPE notification_type AS ENUM ('rating', 'contact', 'approval', 'system');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS users (
   uid VARCHAR(255) PRIMARY KEY,
   firebase_id VARCHAR(255) UNIQUE NOT NULL,
@@ -18,7 +27,6 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Apartments table
 CREATE TABLE IF NOT EXISTS apartments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   firebase_id VARCHAR(255) UNIQUE NOT NULL,
@@ -46,7 +54,6 @@ CREATE TABLE IF NOT EXISTS apartments (
   status VARCHAR(50) NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending', 'rejected'))
 );
 
--- Favorites table
 CREATE TABLE IF NOT EXISTS favorites (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   firebase_id VARCHAR(255) UNIQUE,
@@ -56,15 +63,81 @@ CREATE TABLE IF NOT EXISTS favorites (
   UNIQUE(user_id, apartment_id)
 );
 
--- Reviews table (per requested schema)
 CREATE TABLE IF NOT EXISTS reviews (
   id SERIAL PRIMARY KEY,
   apartment_id VARCHAR(255) NOT NULL REFERENCES apartments(firebase_id) ON DELETE CASCADE,
   renter_id VARCHAR(255) NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
   owner_id VARCHAR(255) NOT NULL,
+  parent_id INTEGER REFERENCES reviews(id) ON DELETE CASCADE,
   rating INTEGER CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   report_count INTEGER DEFAULT 0,
   is_flagged BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE reviews
+ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES reviews(id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_id VARCHAR(255) NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+  sender_id VARCHAR(255) REFERENCES users(uid) ON DELETE SET NULL,
+  type notification_type NOT NULL,
+  apartment_id UUID REFERENCES apartments(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  link TEXT,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'notifications'
+      AND column_name = 'user_id'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'notifications'
+      AND column_name = 'recipient_id'
+  ) THEN
+    ALTER TABLE notifications RENAME COLUMN user_id TO recipient_id;
+  END IF;
+END $$;
+
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_id VARCHAR(255);
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id VARCHAR(255);
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS apartment_id UUID;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+UPDATE notifications
+SET is_read = FALSE
+WHERE is_read IS NULL;
+
+UPDATE notifications
+SET created_at = CURRENT_TIMESTAMP
+WHERE created_at IS NULL;
+
+ALTER TABLE notifications ALTER COLUMN is_read SET DEFAULT FALSE;
+ALTER TABLE notifications ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_apartments_landlord_id ON apartments(landlord_id);
+CREATE INDEX IF NOT EXISTS idx_apartments_wilaya_id ON apartments(wilaya_id);
+CREATE INDEX IF NOT EXISTS idx_apartments_is_active ON apartments(is_active);
+CREATE INDEX IF NOT EXISTS idx_apartments_is_featured ON apartments(is_featured);
+CREATE INDEX IF NOT EXISTS idx_apartments_created_at ON apartments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_apartments_status ON apartments(status);
+CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_apartment_id ON favorites(apartment_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_parent_id ON reviews(parent_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient_id ON notifications(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);

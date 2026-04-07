@@ -106,25 +106,6 @@ const Login = () => {
             <span className="text-2xl font-bold text-primary">اجرلي</span>
           </Link>
 
-          {/* Illustration */}
-          <div className="flex justify-center md:justify-start mt-6">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 64 64"
-              className="h-24 w-24 text-primary/80"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M32 4a12 12 0 0112 12v8h-4V16a8 8 0 10-16 0v8h-4v-8A12 12 0 0132 4z" />
-              <path d="M16 32h32v28H16z" />
-              <path d="M24 32v-6a8 8 0 0116 0v6" />
-              <path d="M24 44h16" />
-            </svg>
-          </div>
-
           {/* Header */}
           <div className="text-center md:text-right">
             <h1 className="text-2xl md:text-3xl font-bold">تسجيل الدخول</h1>

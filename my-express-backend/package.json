@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node migrate.js",
+    "migrate:notifications": "node migrations/setup_notifications_and_replies.js",
     "dev": "node index.js"
   },
   "keywords": [],
@@ -15,12 +16,15 @@
   "dependencies": {
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
-    "dotenv": "^17.3.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "form-data": "^4.0.5",
     "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   }
 }
