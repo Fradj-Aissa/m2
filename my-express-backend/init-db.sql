@@ -10,6 +10,13 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$
+BEGIN
+  CREATE TYPE subscription_status AS ENUM ('pending','active','expired','rejected');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS users (
   uid VARCHAR(255) PRIMARY KEY,
   firebase_id VARCHAR(255) UNIQUE NOT NULL,
@@ -23,6 +30,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone VARCHAR(20) NOT NULL,
   type VARCHAR(50) NOT NULL CHECK (type IN ('renter', 'landlord')),
   role VARCHAR(50),
+  current_plan VARCHAR(20) NOT NULL DEFAULT 'Free',
+  subscription_id UUID,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -128,6 +137,24 @@ WHERE created_at IS NULL;
 
 ALTER TABLE notifications ALTER COLUMN is_read SET DEFAULT FALSE;
 ALTER TABLE notifications ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR(255) NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+  plan_name VARCHAR(20) NOT NULL CHECK (plan_name IN ('Free','Basic','Pro')),
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  receipt_image TEXT,
+  status subscription_status NOT NULL DEFAULT 'pending',
+  start_date TIMESTAMP,
+  end_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS current_plan VARCHAR(20) NOT NULL DEFAULT 'Free';
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS subscription_id UUID REFERENCES subscriptions(id);
 
 CREATE INDEX IF NOT EXISTS idx_apartments_landlord_id ON apartments(landlord_id);
 CREATE INDEX IF NOT EXISTS idx_apartments_wilaya_id ON apartments(wilaya_id);

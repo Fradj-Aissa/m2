@@ -13,11 +13,13 @@ const favoritesRouter = require('./routes/favorites');
 const adminRouter = require('./routes/admin');
 const notificationsRouter = require('./routes/notifications');
 const reviewsRouter = require('./routes/reviews');
+const subscriptionsRouter = require('./routes/subscriptions');
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -57,6 +59,7 @@ app.use('/api/favorites', favoritesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/reviews', reviewsRouter);
+app.use('/api/subscriptions', subscriptionsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

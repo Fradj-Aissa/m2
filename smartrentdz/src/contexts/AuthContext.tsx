@@ -15,6 +15,8 @@ interface UserData {
   phone: string;
   type: "renter" | "landlord";
   account_type?: "renter" | "landlord";
+  current_plan?: string;
+  subscription_id?: string | null;
   created_at?: string;
 }
 

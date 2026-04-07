@@ -62,6 +62,8 @@ async function handleGoogleAuth(req, res) {
     const profilePicExists = await hasColumn("users", "profile_pic");
     const accountTypeExists = await hasColumn("users", "account_type");
     const typeColumnExists = await hasColumn("users", "type");
+    const currentPlanExists = await hasColumn("users", "current_plan");
+    const subscriptionIdExists = await hasColumn("users", "subscription_id");
 
     const selectColumns = [
       "uid",
@@ -72,6 +74,8 @@ async function handleGoogleAuth(req, res) {
       "firebase_id",
       ...(googleIdExists ? ["google_id"] : []),
       ...(profilePicExists ? ["profile_pic"] : []),
+      ...(currentPlanExists ? ["current_plan"] : []),
+      ...(subscriptionIdExists ? ["subscription_id"] : []),
     ];
 
     if (accountTypeExists && typeColumnExists) {
@@ -303,6 +307,8 @@ router.post("/login", async (req, res) => {
 
     const accountTypeExists = await hasColumn("users", "account_type");
     const typeColumnExists = await hasColumn("users", "type");
+    const currentPlanExists = await hasColumn("users", "current_plan");
+    const subscriptionIdExists = await hasColumn("users", "subscription_id");
     const selectColumns = [
       "uid",
       "email",
@@ -312,6 +318,8 @@ router.post("/login", async (req, res) => {
       "created_at",
       ...(accountTypeExists ? ["account_type"] : []),
       ...(typeColumnExists ? ["type"] : []),
+      ...(currentPlanExists ? ["current_plan"] : []),
+      ...(subscriptionIdExists ? ["subscription_id"] : []),
     ].join(", ");
 
     // Find user by email
