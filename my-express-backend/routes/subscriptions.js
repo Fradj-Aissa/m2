@@ -6,6 +6,7 @@ const db = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/isAdmin');
 const { createNotification } = require('../services/notifications');
+
 const router = express.Router();
 
 const uploadDir = path.join(__dirname, '..', 'uploads', 'receipts');
@@ -95,6 +96,12 @@ router.patch('/admin/:id/approve', authMiddleware, isAdmin, async (req, res) => 
     }
 
     const subscription = subscriptionResult.rows[0];
+
+    if (!subscription.user_id || !subscription.plan_name) {
+      console.error('Invalid subscription data', subscription);
+      return res.status(400).json({ error: 'Invalid subscription data' });
+    }
+
     const updated = await db.query(
       `UPDATE subscriptions
        SET status = 'active',
@@ -119,7 +126,7 @@ router.patch('/admin/:id/approve', authMiddleware, isAdmin, async (req, res) => 
         senderId: req.user.uid,
         type: 'approval',
         apartmentId: null,
-        message: `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name} بنجاح!`,
+        message: `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name} بنجاح! شكراً لثقتك`,
         link: '/subscription',
       });
     } catch (notifyError) {
@@ -180,7 +187,7 @@ router.patch('/admin/:id/reject', authMiddleware, isAdmin, async (req, res) => {
   }
 });
 
-router.get('/admin/pending', authMiddleware, isAdmin, async (req, res) => {
+router.get('/admin/pending', authMiddleware, isAdmin, async (_req, res) => {
   try {
     const result = await db.query(
       `SELECT s.*, u.name AS user_name, u.email AS user_email

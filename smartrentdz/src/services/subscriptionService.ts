@@ -52,14 +52,19 @@ export async function fetchPendingSubscriptions() {
 export async function approveSubscription(id: string) {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  const response = await axios.patch<{ subscription: Subscription }>(
-    `${apiBase}/subscriptions/admin/${id}/approve`,
-    {},
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    }
-  );
-  return response.data.subscription;
+  try {
+    const response = await axios.patch<{ subscription: Subscription }>(
+      `${apiBase}/subscriptions/admin/${id}/approve`,
+      {},
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    return response.data.subscription;
+  } catch (err: any) {
+    const message = err?.response?.data?.error || err?.message || "Server error";
+    throw new Error(message);
+  }
 }
 
 export async function rejectSubscription(id: string) {
