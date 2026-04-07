@@ -95,19 +95,21 @@ router.patch('/admin/:id/approve', authMiddleware, isAdmin, async (req, res) => 
     }
 
     const subscription = subscriptionResult.rows[0];
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
-
     const updated = await db.query(
       `UPDATE subscriptions
-       SET status = 'active', start_date = CURRENT_TIMESTAMP, end_date = $2
+       SET status = 'active',
+           start_date = NOW(),
+           end_date = NOW() + INTERVAL '30 days'
        WHERE id = $1
        RETURNING *`,
-      [id, endDate]
+      [id]
     );
 
     await db.query(
-      `UPDATE users SET current_plan = $2, subscription_id = $1 WHERE uid = $3`,
+      `UPDATE users
+       SET current_plan = $2,
+           subscription_id = $1
+       WHERE uid = $3`,
       [id, subscription.plan_name, subscription.user_id]
     );
 
@@ -117,7 +119,7 @@ router.patch('/admin/:id/approve', authMiddleware, isAdmin, async (req, res) => 
         senderId: req.user.uid,
         type: 'approval',
         apartmentId: null,
-        message: `تم تفعيل اشتراكك ${subscription.plan_name} بنجاح! شكراً لثقتك`,
+        message: `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name} بنجاح!`,
         link: '/subscription',
       });
     } catch (notifyError) {
@@ -157,6 +159,19 @@ router.patch('/admin/:id/reject', authMiddleware, isAdmin, async (req, res) => {
       `UPDATE users SET subscription_id = NULL WHERE uid = $1 AND subscription_id = $2`,
       [subscription.user_id, id]
     );
+
+    try {
+      await createNotification({
+        recipientId: subscription.user_id,
+        senderId: req.user.uid,
+        type: 'approval',
+        apartmentId: null,
+        message: `❌ نعتذر، تم رفض إيصال الدفع لاشتراك ${subscription.plan_name}. يرجى التأكد والمحاولة مجدداً.`,
+        link: '/subscription',
+      });
+    } catch (notifyError) {
+      console.error('Notification send failed:', notifyError);
+    }
 
     res.json({ subscription: updated.rows[0] });
   } catch (error) {

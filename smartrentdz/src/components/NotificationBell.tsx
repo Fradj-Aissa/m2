@@ -82,7 +82,7 @@ const NotificationBell = () => {
       </Button>
 
       {isOpen ? (
-        <div className="absolute right-0 w-[calc(100vw-2rem)] md:w-96 z-50 mt-3 overflow-hidden rounded-2xl border bg-background shadow-2xl">
+        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-80 md:w-96 max-w-[90vw] z-50 overflow-hidden rounded-2xl border bg-background shadow-2xl">
           <div className="border-b px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
