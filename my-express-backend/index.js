@@ -1,9 +1,9 @@
 const express = require('express');
-const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const db = require('./db');
 const { initializeSocketServer } = require('./socket');
+const { runMigrations } = require('./database/init-db');
 require('dotenv').config();
 
 const authRouter = require('./routes/auth');
@@ -67,21 +67,9 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-async function initializeDatabase() {
-  try {
-    const filePath = path.resolve(__dirname, 'init-db.sql');
-    const sql = fs.readFileSync(filePath, 'utf-8');
-    await db.query(sql);
-    console.log('Database tables checked/created successfully.');
-  } catch (error) {
-    console.error('Database initialization failed:', error);
-    throw error;
-  }
-}
-
 async function startServer() {
   try {
-    await initializeDatabase();
+    await runMigrations();
     initializeSocketServer(server);
 
     server.listen(PORT, () => {

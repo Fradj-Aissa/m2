@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "node migrate.js",
-    "migrate:notifications": "node migrations/setup_notifications_and_replies.js",
+    "db:init": "node database/init-db.js",
     "dev": "node index.js"
   },
   "keywords": [],
