@@ -4,6 +4,7 @@ const db = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/isAdmin');
 const { createNotification } = require('../services/notifications');
+const { normalizeStoredPlan } = require('../utils/plans');
 
 /**
  * GET /api/admin/stats
@@ -65,6 +66,8 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
 
     let updated;
     if (status === 'active') {
+      const storedPlan = normalizeStoredPlan(subscription.plan_name);
+
       updated = await db.query(
         `UPDATE subscriptions
          SET status = 'active',
@@ -78,7 +81,7 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
 
       await db.query(
         `UPDATE users SET current_plan = $2, subscription_id = $1 WHERE uid = $3`,
-        [id, subscription.plan_name, subscription.user_id]
+        [id, storedPlan, subscription.user_id]
       );
     } else {
       updated = await db.query(
@@ -93,7 +96,7 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
       );
 
       await db.query(
-        `UPDATE users SET subscription_id = NULL, current_plan = 'Free' WHERE uid = $1`,
+        `UPDATE users SET subscription_id = NULL, current_plan = 'free' WHERE uid = $1`,
         [subscription.user_id]
       );
     }

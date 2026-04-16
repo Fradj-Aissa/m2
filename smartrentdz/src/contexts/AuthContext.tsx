@@ -6,6 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { apiPost } from "@/lib/api";
+import { normalizePlanName } from "@/lib/plans";
 import axios from "axios";
 
 interface UserData {
@@ -69,11 +70,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const setAuthInfo = ({ token, user, isAuthenticated }: AuthInfo) => {
     if (isAuthenticated && token && user) {
+      const normalizedUser = {
+        ...user,
+        current_plan: normalizePlanName(user.current_plan),
+      };
+
       localStorage.setItem("token", token);
-      localStorage.setItem("userData", JSON.stringify(user));
+      localStorage.setItem("userData", JSON.stringify(normalizedUser));
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      setCurrentUser(user);
-      setUserData(user);
+      setCurrentUser(normalizedUser);
+      setUserData(normalizedUser);
     } else {
       localStorage.removeItem("token");
       localStorage.removeItem("userData");

@@ -6,6 +6,7 @@ const db = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/isAdmin');
 const { createNotification } = require('../services/notifications');
+const { normalizeStoredPlan } = require('../utils/plans');
 
 const router = express.Router();
 
@@ -126,6 +127,8 @@ async function updateStatusHandler(req, res) {
 
     let updated;
     if (status === 'active') {
+      const storedPlan = normalizeStoredPlan(subscription.plan_name);
+
       updated = await db.query(
         `UPDATE subscriptions
          SET status = 'active',
@@ -142,7 +145,7 @@ async function updateStatusHandler(req, res) {
          SET current_plan = $2,
              subscription_id = $1
          WHERE uid = $3`,
-        [id, subscription.plan_name, subscription.user_id]
+        [id, storedPlan, subscription.user_id]
       );
     } else {
       updated = await db.query(
@@ -157,7 +160,7 @@ async function updateStatusHandler(req, res) {
       );
 
       await db.query(
-        `UPDATE users SET subscription_id = NULL, current_plan = 'Free'
+        `UPDATE users SET subscription_id = NULL, current_plan = 'free'
          WHERE uid = $1`,
         [subscription.user_id]
       );

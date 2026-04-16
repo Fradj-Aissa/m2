@@ -4,14 +4,15 @@ const db = require("../db");
 const multer = require("multer");
 const axios = require("axios");
 const authMiddleware = require("../middleware/authMiddleware");
+const { normalizeDisplayPlan, normalizeStoredPlan } = require("../utils/plans");
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
 const PLAN_LIMITS = {
-  Free: { maxProperties: 1, maxImages: 5 },
-  Basic: { maxProperties: 3, maxImages: 10 },
-  Pro: { maxProperties: 10, maxImages: 20 },
+  free: { maxProperties: 1, maxImages: 5 },
+  basic: { maxProperties: 3, maxImages: 10 },
+  pro: { maxProperties: 10, maxImages: 20 },
 };
 
 /**
@@ -133,7 +134,7 @@ router.get("/", async (req, res) => {
 
     // Order: plan priority, then subscription start_date, then creation date
     query += ` ORDER BY
-      CASE u.current_plan WHEN 'Pro' THEN 1 WHEN 'Basic' THEN 2 ELSE 3 END,
+      CASE LOWER(COALESCE(u.current_plan, 'free')) WHEN 'pro' THEN 1 WHEN 'basic' THEN 2 ELSE 3 END,
       COALESCE(s.start_date, a.created_at) DESC,
       a.created_at DESC
       LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
@@ -313,8 +314,9 @@ router.post("/", authMiddleware, async (req, res) => {
 
     // Fetch plan limits
     const userResult = await db.query("SELECT current_plan FROM users WHERE uid = $1", [landlordUid]);
-    const currentPlan = userResult.rows[0]?.current_plan || "Free";
-    const planLimits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.Free;
+    const currentPlan = normalizeStoredPlan(userResult.rows[0]?.current_plan);
+    const planLimits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
+    const displayPlan = normalizeDisplayPlan(currentPlan);
 
     // Check property count limit
     const countResult = await db.query(
@@ -323,7 +325,7 @@ router.post("/", authMiddleware, async (req, res) => {
     );
     if (countResult.rows[0].count >= planLimits.maxProperties) {
       return res.status(403).json({
-        error: `Plan limit reached: ${currentPlan} allows up to ${planLimits.maxProperties} properties`,
+        error: `Plan limit reached: ${displayPlan} allows up to ${planLimits.maxProperties} properties`,
       });
     }
 
@@ -339,7 +341,7 @@ router.post("/", authMiddleware, async (req, res) => {
     if (!Array.isArray(normalizedImages)) normalizedImages = [];
     if (normalizedImages.length > planLimits.maxImages) {
       return res.status(400).json({
-        error: `Plan limit reached: ${currentPlan} allows up to ${planLimits.maxImages} images per property`,
+        error: `Plan limit reached: ${displayPlan} allows up to ${planLimits.maxImages} images per property`,
       });
     }
 

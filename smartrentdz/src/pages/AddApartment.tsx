@@ -20,6 +20,10 @@ import { wilayas } from "@/data/wilayas";
 import { useAuth } from "@/contexts/AuthContext";
 import { createApartment } from "@/services/apartmentService";
 import { uploadImagesToImgBB } from "@/services/imageService";
+import {
+  predictApartmentPrice,
+  PropertyType,
+} from "@/services/pricePredictionService";
 
 const amenitiesList = [
   "واي فاي",
@@ -34,16 +38,31 @@ const amenitiesList = [
   "أمن 24/7",
 ];
 
+const propertyTypeOptions: PropertyType[] = [
+  "Apartment",
+  "Villa",
+  "House",
+  "Loft",
+  "Condo",
+];
+
+const AI_PRICE_WARNING_THRESHOLD = 1.15;
+
 const AddApartment = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentUser, userData } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isPredictingPrice, setIsPredictingPrice] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [aiConfidence, setAiConfidence] = useState<number | null>(null);
+  const [lastPredictedPrice, setLastPredictedPrice] = useState<number | null>(null);
+  const [showPriceSuggestion, setShowPriceSuggestion] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    propertyType: "Apartment" as PropertyType,
     wilayaId: "",
     municipality: "",
     price: "",
@@ -77,6 +96,99 @@ const AddApartment = () => {
         ? prev.amenities.filter((a) => a !== amenity)
         : [...prev.amenities, amenity],
     }));
+  };
+
+  const resetPredictionFeedback = () => {
+    setAiConfidence(null);
+    setLastPredictedPrice(null);
+    setShowPriceSuggestion(false);
+  };
+
+  const updatePriceSuggestion = (nextPrice: string, comparisonPrice = lastPredictedPrice) => {
+    const numericPrice = Number(nextPrice);
+    const shouldSuggest =
+      comparisonPrice !== null &&
+      Number.isFinite(numericPrice) &&
+      numericPrice > comparisonPrice * AI_PRICE_WARNING_THRESHOLD;
+
+    setShowPriceSuggestion(shouldSuggest);
+  };
+
+  const handlePriceChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, price: value }));
+    updatePriceSuggestion(value);
+  };
+
+  const handlePredictPrice = async () => {
+    const requestedPrice = Number(formData.price);
+    const rooms = Number(formData.rooms);
+    const bathrooms = Number(formData.bathrooms);
+    const wilayaId = Number(formData.wilayaId);
+
+    if (!Number.isFinite(requestedPrice) || requestedPrice <= 0) {
+      toast({
+        title: "خطأ",
+        description: "أدخل سعرًا حاليًا صحيحًا أولاً حتى يتمكن الذكاء الاصطناعي من التقدير.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      !Number.isFinite(rooms) ||
+      rooms <= 0 ||
+      !Number.isFinite(bathrooms) ||
+      bathrooms <= 0 ||
+      !Number.isFinite(wilayaId) ||
+      wilayaId <= 0
+    ) {
+      toast({
+        title: "خطأ",
+        description: "اختر الولاية وأدخل عدد الغرف والحمامات قبل طلب تقدير السعر.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPredictingPrice(true);
+
+    try {
+      const manualPriceBeforePrediction = requestedPrice;
+      const prediction = await predictApartmentPrice({
+        requested_price: requestedPrice,
+        rooms,
+        bathrooms,
+        wilayaId,
+        property_type: formData.propertyType,
+      });
+
+      const roundedPrediction = Math.round(prediction.predicted_price);
+
+      setFormData((prev) => ({
+        ...prev,
+        price: roundedPrediction.toString(),
+      }));
+      setLastPredictedPrice(prediction.predicted_price);
+      setAiConfidence(prediction.confidence);
+      setShowPriceSuggestion(
+        manualPriceBeforePrediction > prediction.predicted_price * AI_PRICE_WARNING_THRESHOLD
+      );
+
+      toast({
+        title: "تم تقدير السعر",
+        description: `تم تحديث السعر إلى ${roundedPrediction.toLocaleString("en-US")} د.ج`,
+      });
+    } catch (error: any) {
+      console.error("Error predicting apartment price:", error);
+      toast({
+        title: "خطأ",
+        description:
+          error?.message || "تعذر جلب التقدير من خادم الذكاء الاصطناعي.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPredictingPrice(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -305,6 +417,29 @@ const AddApartment = () => {
                   required
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>نوع العقار</Label>
+                <Select
+                  value={formData.propertyType}
+                  onValueChange={(v) => {
+                    const propertyType = v as PropertyType;
+                    resetPredictionFeedback();
+                    setFormData({ ...formData, propertyType });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر نوع العقار" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {propertyTypeOptions.map((propertyType) => (
+                      <SelectItem key={propertyType} value={propertyType}>
+                        {propertyType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Location */}
@@ -319,7 +454,10 @@ const AddApartment = () => {
                   <Label>الولاية</Label>
                   <Select
                     value={formData.wilayaId}
-                    onValueChange={(v) => setFormData({ ...formData, wilayaId: v })}
+                    onValueChange={(v) => {
+                      resetPredictionFeedback();
+                      setFormData({ ...formData, wilayaId: v });
+                    }}
                     required
                   >
                     <SelectTrigger>
@@ -357,14 +495,40 @@ const AddApartment = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="price">السعر (د.ج)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    placeholder="5000"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="price"
+                      type="number"
+                      placeholder="5000"
+                      value={formData.price}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      required
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePredictPrice}
+                      disabled={isPredictingPrice || isLoading}
+                    >
+                      {isPredictingPrice ? "جاري التقدير..." : "AI Predict Price"}
+                    </Button>
+                  </div>
+                  {aiConfidence !== null && (
+                    <p className="text-xs text-muted-foreground">
+                      AI Confidence: {(aiConfidence * 100).toFixed(0)}%
+                    </p>
+                  )}
+                  {lastPredictedPrice !== null && (
+                    <p className="text-xs text-muted-foreground">
+                      AI Suggested Price: {Math.round(lastPredictedPrice).toLocaleString("en-US")} د.ج
+                    </p>
+                  )}
+                  {showPriceSuggestion && (
+                    <p className="text-xs text-amber-700">
+                      Consider lowering your price to match market demand.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>مدة الكراء</Label>
@@ -394,7 +558,10 @@ const AddApartment = () => {
                   <Label htmlFor="rooms">عدد الغرف</Label>
                   <Select
                     value={formData.rooms}
-                    onValueChange={(v) => setFormData({ ...formData, rooms: v })}
+                    onValueChange={(v) => {
+                      resetPredictionFeedback();
+                      setFormData({ ...formData, rooms: v });
+                    }}
                     required
                   >
                     <SelectTrigger>
@@ -413,7 +580,10 @@ const AddApartment = () => {
                   <Label htmlFor="bathrooms">عدد الحمامات</Label>
                   <Select
                     value={formData.bathrooms}
-                    onValueChange={(v) => setFormData({ ...formData, bathrooms: v })}
+                    onValueChange={(v) => {
+                      resetPredictionFeedback();
+                      setFormData({ ...formData, bathrooms: v });
+                    }}
                     required
                   >
                     <SelectTrigger>

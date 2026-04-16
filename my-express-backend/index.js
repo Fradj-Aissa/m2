@@ -14,6 +14,7 @@ const adminRouter = require('./routes/admin');
 const notificationsRouter = require('./routes/notifications');
 const reviewsRouter = require('./routes/reviews');
 const subscriptionsRouter = require('./routes/subscriptions');
+const predictionsRouter = require('./routes/predictions');
 
 const app = express();
 const server = http.createServer(app);
@@ -60,6 +61,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api', predictionsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

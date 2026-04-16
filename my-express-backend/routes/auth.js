@@ -5,6 +5,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const authMiddleware = require("../middleware/authMiddleware");
+const { normalizeDisplayPlan } = require("../utils/plans");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -19,6 +20,16 @@ async function hasColumn(table, column) {
     [table, column]
   );
   return result.rows.length > 0;
+}
+
+function normalizeUserPlan(user) {
+  if (!user) return user;
+
+  return {
+    ...user,
+    current_plan:
+      user.current_plan === undefined ? user.current_plan : normalizeDisplayPlan(user.current_plan),
+  };
 }
 
 async function handleGoogleAuth(req, res) {
@@ -163,6 +174,7 @@ async function handleGoogleAuth(req, res) {
       user = insertResult.rows[0];
     }
 
+    user = normalizeUserPlan(user);
     user.account_type = user.account_type || user.type || "renter";
     user.type = user.type || user.account_type;
     const requiresCompleteProfile = !user.phone;
@@ -355,11 +367,12 @@ router.post("/login", async (req, res) => {
 
     // Return user without password
     const { password: _, ...userWithoutPassword } = user;
-    userWithoutPassword.account_type = accountType;
+    const normalizedUser = normalizeUserPlan(userWithoutPassword);
+    normalizedUser.account_type = accountType;
 
     res.json({
       message: "Login successful",
-      user: userWithoutPassword,
+      user: normalizedUser,
       token,
       requiresCompleteProfile: !user.phone || !user.password,
     });
