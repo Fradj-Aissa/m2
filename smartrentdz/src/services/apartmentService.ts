@@ -31,6 +31,9 @@ export interface Apartment {
   landlord_name: string;
   status: 'approved' | 'pending' | 'rejected';
   updated_at?: string;
+  verification_docs?: string[];
+  verification_status?: 'pending' | 'verified' | 'rejected';
+  verification_feedback?: string;
 }
 
 /**
@@ -62,6 +65,9 @@ function mapApartmentToFrontend(data: any): Apartment {
     landlord_name: data.landlord_name,
     status: data.status,
     updated_at: data.updated_at,
+    verification_docs: Array.isArray(data.verification_docs) ? data.verification_docs : (data.verification_docs ? JSON.parse(data.verification_docs) : []),
+    verification_status: data.verification_status,
+    verification_feedback: data.verification_feedback,
   };
 }
 
@@ -127,6 +133,7 @@ export const createApartment = async (
     bathrooms: apartmentData.bathrooms,
     area: apartmentData.area,
     amenities: apartmentData.amenities,
+    verificationDocs: apartmentData.verification_docs || [],
     isFeatured: apartmentData.is_featured,
     isActive: apartmentData.is_active,
     landlordId: apartmentData.landlord_id,

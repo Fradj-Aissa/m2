@@ -56,6 +56,8 @@ const AddApartment = () => {
   const [isPredictingPrice, setIsPredictingPrice] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [verificationDocFiles, setVerificationDocFiles] = useState<File[]>([]);
+  const [verificationDocPreviews, setVerificationDocPreviews] = useState<string[]>([]);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [lastPredictedPrice, setLastPredictedPrice] = useState<number | null>(null);
   const [showPriceSuggestion, setShowPriceSuggestion] = useState(false);
@@ -71,6 +73,7 @@ const AddApartment = () => {
     bathrooms: "",
     area: "",
     amenities: [] as string[],
+    verification_docs: [] as string[],
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,6 +90,22 @@ const AddApartment = () => {
   const removeImage = (index: number) => {
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleVerificationDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+      
+      setVerificationDocFiles((prev) => [...prev, ...newFiles].slice(0, 5));
+      setVerificationDocPreviews((prev) => [...prev, ...newPreviews].slice(0, 5));
+    }
+  };
+
+  const removeVerificationDoc = (index: number) => {
+    setVerificationDocFiles((prev) => prev.filter((_, i) => i !== index));
+    setVerificationDocPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const toggleAmenity = (amenity: string) => {
@@ -292,6 +311,12 @@ const AddApartment = () => {
       // Upload images to ImgBB via backend
       const imageUrls = await uploadImagesToImgBB(imageFiles);
 
+      // Upload verification docs if provided
+      let verificationDocUrls: string[] = [];
+      if (verificationDocFiles.length > 0) {
+        verificationDocUrls = await uploadImagesToImgBB(verificationDocFiles);
+      }
+
       // Get wilaya name
       const wilaya = wilayas.find((w) => w.id.toString() === formData.wilayaId);
 
@@ -309,6 +334,7 @@ const AddApartment = () => {
         bathrooms: parseInt(formData.bathrooms),
         area: parseInt(formData.area),
         amenities: formData.amenities,
+        verification_docs: verificationDocUrls,
         is_featured: false,
         is_active: true,
         landlord_id: currentUser.uid,
@@ -610,6 +636,44 @@ const AddApartment = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Verification Documents */}
+            <div className="bg-card rounded-xl border p-6">
+              <h2 className="font-semibold mb-2">وثائق إثبات الملكية (اختياري)</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                هذه الوثائق تطلع عليها الإدارة فقط لتوثيق الشقة وزيادة مصداقية إعلانك.
+              </p>
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+                {verificationDocPreviews.map((img, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                    <img src={img} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
+                      onClick={() => removeVerificationDoc(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {verificationDocPreviews.length < 5 && (
+                  <label className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                    <span className="text-xs text-muted-foreground text-center">إضافة وثيقة</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleVerificationDocUpload}
+                    />
+                  </label>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                أضف حتى 5 وثائق إثبات ملكية (صكوك، عقود، إلخ).
+              </p>
             </div>
 
             {/* Amenities */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Search, CheckCircle, XCircle, Clock, Shield } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiGet, apiPut } from "@/lib/api";
+import VerificationModal from "./VerificationModal";
 
 interface Property {
   id: string;
@@ -27,7 +28,11 @@ interface Property {
   price: number;
   wilaya: string;
   landlord_name: string;
+  landlord_email?: string;
+  landlord_phone?: string;
   status: "pending" | "approved" | "rejected";
+  verification_status?: "pending" | "verified" | "rejected";
+  verification_docs?: string[];
   created_at: string;
   images?: string[];
 }
@@ -38,6 +43,8 @@ const PropertiesTable = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,6 +56,8 @@ const PropertiesTable = () => {
       setLoading(true);
       // Replace with actual API endpoint
       const response = await apiGet<Property[]>("/admin/properties");
+      console.log('✅ Admin Properties Data:', response);
+      console.log('Properties with verification_docs:', response.filter(p => p.verification_docs && p.verification_docs.length > 0));
       setProperties(response);
       setFilteredProperties(response);
     } catch (error) {
@@ -63,6 +72,8 @@ const PropertiesTable = () => {
           wilaya: "الجزائر",
           landlord_name: "أحمد محمد",
           status: "pending",
+          verification_status: "pending",
+          verification_docs: ["https://i.ibb.co/sample1.jpg"],
           created_at: "2024-03-20",
         },
         {
@@ -73,6 +84,7 @@ const PropertiesTable = () => {
           wilaya: "وهران",
           landlord_name: "علي حسن",
           status: "approved",
+          verification_status: "pending",
           created_at: "2024-03-15",
         },
         {
@@ -165,6 +177,46 @@ const PropertiesTable = () => {
     }
   };
 
+  const handleOpenVerificationModal = async (property: Property) => {
+    try {
+      console.log('🔓 Opening verification modal for property:', {
+        id: property.id,
+        title: property.title,
+        verification_docs_from_list: property.verification_docs,
+      });
+      
+      // Fetch full property details including verification_docs
+      const response = await apiGet<any>(
+        `/admin/properties/${property.id}/verification`
+      );
+      
+      console.log('✅ Verification details fetched:', {
+        verification_docs: response.verification_docs,
+        verification_status: response.verification_status,
+        landlord_info: {
+          name: response.landlord_name,
+          email: response.landlord_email,
+          phone: response.landlord_phone,
+        },
+      });
+      
+      setSelectedProperty(response);
+      setIsVerificationModalOpen(true);
+    } catch (error) {
+      console.error("❌ Failed to fetch verification details:", error);
+      toast({
+        title: "خطأ",
+        description: "فشل تحميل بيانات التحقق.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVerificationUpdated = () => {
+    fetchProperties();
+    setIsVerificationModalOpen(false);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
@@ -247,6 +299,7 @@ const PropertiesTable = () => {
                   <TableHead className="text-right">الولاية</TableHead>
                   <TableHead className="text-right">السعر</TableHead>
                   <TableHead className="text-right">الحالة</TableHead>
+                  <TableHead className="text-right">التوثيق</TableHead>
                   <TableHead className="text-right">التاريخ</TableHead>
                   <TableHead className="text-center">الإجراءات</TableHead>
                 </TableRow>
@@ -277,10 +330,58 @@ const PropertiesTable = () => {
                       </div>
                     </TableCell>
                     <TableCell>
+                      {property.verification_status ? (
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          <span
+                            className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                              property.verification_status === "verified"
+                                ? "bg-blue-100 text-blue-800"
+                                : property.verification_status === "rejected"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {property.verification_status === "verified" && "موثق"}
+                            {property.verification_status === "rejected" && "مرفوض"}
+                            {property.verification_status === "pending" && "قيد الانتظار"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {new Date(property.created_at).toLocaleDateString("ar-EG")}
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        {/* Debug: Log each property's verification status */}
+                        {(() => {
+                          console.log(`📋 Property: ${property.title}`, {
+                            id: property.id,
+                            status: property.status,
+                            verification_status: property.verification_status,
+                            verification_docs_count: property.verification_docs?.length || 0,
+                            verification_docs_exists: !!property.verification_docs,
+                          });
+                          return null;
+                        })()}
+                        
+                        {/* Review Docs Button - Show if verification_docs exist */}
+                        {property.verification_docs && property.verification_docs.length > 0 ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenVerificationModal(property)}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700"
+                          >
+                            <Shield className="w-3 h-3 mr-1" />
+                            مراجعة الوثائق
+                          </Button>
+                        ) : null}
+
+                        {/* Approve/Reject Buttons - Show only for pending properties */}
                         {property.status === "pending" && (
                           <>
                             <Button
@@ -304,7 +405,9 @@ const PropertiesTable = () => {
                             </Button>
                           </>
                         )}
-                        {property.status !== "pending" && (
+
+                        {/* No Actions Message - Only show when none of the above apply */}
+                        {property.status !== "pending" && (!property.verification_docs || property.verification_docs.length === 0) && (
                           <span className="text-xs text-muted-foreground">
                             لا توجد إجراءات
                           </span>
@@ -318,6 +421,13 @@ const PropertiesTable = () => {
           </div>
         )}
       </CardContent>
+
+      <VerificationModal
+        property={selectedProperty}
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
+        onVerificationUpdated={handleVerificationUpdated}
+      />
     </Card>
   );
 };

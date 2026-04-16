@@ -296,23 +296,43 @@ router.patch('/reviews/:id/flag', authMiddleware, isAdmin, async (req, res) => {
 
 /**
  * GET /api/admin/properties
- * Returns all properties/apartments
+ * Returns all properties/apartments with verification data
  */
 router.get('/properties', authMiddleware, isAdmin, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT 
-        id,
-        title,
-        description,
-        price,
-        wilaya,
-        landlord_name,
-        status,
-        created_at
-       FROM apartments
-       ORDER BY created_at DESC`
+        a.id,
+        a.firebase_id,
+        a.title,
+        a.description,
+        a.price,
+        a.wilaya,
+        a.landlord_name,
+        a.landlord_id,
+        a.landlord_phone,
+        u.email as landlord_email,
+        a.status,
+        a.verification_status,
+        a.verification_docs,
+        a.verification_feedback,
+        a.created_at
+       FROM apartments a
+       LEFT JOIN users u ON u.uid = a.landlord_id
+       ORDER BY a.created_at DESC`
     );
+
+    // Debug logging
+    console.log(`✅ Admin properties fetched: ${result.rows.length} properties`);
+    const propsWithDocs = result.rows.filter(p => p.verification_docs && (Array.isArray(p.verification_docs) ? p.verification_docs.length > 0 : p.verification_docs !== '[]'));
+    console.log(`📄 Properties with verification_docs: ${propsWithDocs.length}`);
+    propsWithDocs.slice(0, 2).forEach(p => {
+      console.log(`  - ${p.title}:`, {
+        verification_docs_type: typeof p.verification_docs,
+        is_array: Array.isArray(p.verification_docs),
+        value_sample: Array.isArray(p.verification_docs) ? p.verification_docs.slice(0, 2) : p.verification_docs,
+      });
+    });
 
     res.json(result.rows);
   } catch (error) {
@@ -349,15 +369,29 @@ router.put('/properties/:id/approve', authMiddleware, isAdmin, async (req, res) 
 });
 
 /**
- * PUT /api/admin/properties/:id/reject
- * Rejects a pending property
+ * GET /api/admin/properties/:id/verification
+ * Returns apartment with verification docs (for admins only)
  */
-router.put('/properties/:id/reject', authMiddleware, isAdmin, async (req, res) => {
+router.get('/properties/:id/verification', authMiddleware, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
     const result = await db.query(
-      "UPDATE apartments SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      `SELECT 
+        a.id,
+        a.title,
+        a.firebase_id,
+        a.verification_status,
+        a.verification_docs,
+        a.verification_feedback,
+        a.landlord_id,
+        a.landlord_name,
+        a.landlord_phone,
+        u.email as landlord_email,
+        a.created_at
+       FROM apartments a
+       LEFT JOIN users u ON u.uid = a.landlord_id
+       WHERE a.id::text = $1 OR a.firebase_id = $1`,
       [id]
     );
 
@@ -365,13 +399,117 @@ router.put('/properties/:id/reject', authMiddleware, isAdmin, async (req, res) =
       return res.status(404).json({ error: 'Property not found' });
     }
 
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching property verification:', error);
+    res.status(500).json({ error: 'Failed to fetch property verification' });
+  }
+});
+
+/**
+ * GET /api/admin/properties/verification/pending
+ * Returns all properties pending verification
+ */
+router.get('/properties/verification/pending', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        a.id,
+        a.title,
+        a.firebase_id,
+        a.verification_status,
+        a.verification_docs,
+        a.landlord_name,
+        a.landlord_phone,
+        a.created_at,
+        u.email as landlord_email
+       FROM apartments a
+       LEFT JOIN users u ON u.uid = a.landlord_id
+       WHERE a.verification_status = 'pending'
+       ORDER BY a.created_at ASC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching pending verifications:', error);
+    res.status(500).json({ error: 'Failed to fetch pending verifications' });
+  }
+});
+
+/**
+ * PATCH /api/admin/properties/:id/verification
+ * body: { status: 'verified' | 'rejected', feedback?: string }
+ */
+router.patch('/properties/:id/verification', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, feedback = null } = req.body;
+
+    if (!['verified', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'status must be verified, rejected, or pending' });
+    }
+
+    // Fetch the apartment first
+    const aptResult = await db.query(
+      `SELECT a.id, a.landlord_id FROM apartments a 
+       WHERE a.id::text = $1 OR a.firebase_id = $1`,
+      [id]
+    );
+
+    if (aptResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    const apartment = aptResult.rows[0];
+
+    // Update verification status and feedback
+    const updateResult = await db.query(
+      `UPDATE apartments 
+       SET verification_status = $1,
+           verification_feedback = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id::text = $3 OR firebase_id = $3
+       RETURNING *`,
+      [status, feedback, id]
+    );
+
+    const updatedApartment = updateResult.rows[0];
+
+    // Send notification to landlord
+    let notificationMessage;
+    let notificationType;
+    
+    if (status === 'verified') {
+      notificationMessage = '✅ تم التحقق من ملكيتك للعقار بنجاح! عقارك الآن موثق.';
+      notificationType = 'approval';
+    } else if (status === 'rejected') {
+      notificationMessage = `❌ تم رفض التحقق من ملكيتك للعقار.${feedback ? ` السبب: ${feedback}` : ''}`;
+      notificationType = 'system';
+    } else {
+      notificationMessage = '⏳ تم إرجاع التحقق للمراجعة.';
+      notificationType = 'system';
+    }
+
+    try {
+      await createNotification({
+        recipientId: apartment.landlord_id,
+        senderId: req.user.uid,
+        type: notificationType,
+        apartmentId: apartment.id,
+        message: notificationMessage,
+        link: `/apartment/${apartment.id}`,
+      });
+    } catch (notifyErr) {
+      console.error('Notification send failed:', notifyErr);
+    }
+
     res.json({
-      message: 'Property rejected successfully',
-      property: result.rows[0],
+      message: `Property verification ${status} successfully`,
+      property: updatedApartment,
     });
   } catch (error) {
-    console.error('Error rejecting property:', error);
-    res.status(500).json({ error: 'Failed to reject property' });
+    console.error('Error updating property verification:', error);
+    res.status(500).json({ error: 'Failed to update property verification' });
   }
 });
 

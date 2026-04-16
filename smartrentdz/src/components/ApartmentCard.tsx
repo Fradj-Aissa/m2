@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart, MapPin, Bed, Bath, Maximize } from "lucide-react";
+import { Heart, MapPin, Bed, Bath, Maximize, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Apartment } from "@/services/apartmentService";
@@ -30,6 +30,16 @@ const ApartmentCard = ({ apartment, onFavoriteClick, isFavorite = false }: Apart
           <Badge className="absolute top-3 right-3 bg-gradient-featured text-featured-foreground border-0 shadow-featured">
             ✨ مميز
           </Badge>
+        )}
+
+        {/* Premium Verification Badge */}
+        {apartment.verification_status === 'verified' && (
+          <div className="absolute top-3 right-16 z-20 animate-fade-in-down">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white border border-blue-400/30 shadow-sm bg-opacity-90 backdrop-blur-sm transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:from-blue-700 group-hover:to-blue-600">
+              <CheckCircle className="h-4 w-4 animate-pulse-slow" />
+              <span className="text-xs font-semibold tracking-wide">موثق</span>
+            </div>
+          </div>
         )}
 
         {/* Favorite Button */}

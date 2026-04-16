@@ -5,6 +5,14 @@ const multer = require("multer");
 const axios = require("axios");
 const authMiddleware = require("../middleware/authMiddleware");
 const { normalizeDisplayPlan, normalizeStoredPlan } = require("../utils/plans");
+const { createNotification } = require("../services/notifications");
+
+// Helper function to exclude sensitive verification docs from public API
+const excludeVerificationDocs = (apartment) => {
+  if (!apartment) return apartment;
+  const { verification_docs, ...rest } = apartment;
+  return rest;
+};
 
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -183,8 +191,11 @@ router.get("/", async (req, res) => {
     const countResult = await db.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
+    // Exclude verification_docs from public API response
+    const apartmentsWithoutDocs = result.rows.map(excludeVerificationDocs);
+
     res.json({
-      apartments: result.rows,
+      apartments: apartmentsWithoutDocs,
       pagination: {
         total,
         limit: parseInt(limit),
@@ -205,7 +216,9 @@ router.get("/featured", async (req, res) => {
     const result = await db.query(
       "SELECT * FROM apartments WHERE is_active = true AND is_featured = true ORDER BY created_at DESC LIMIT 6"
     );
-    res.json(result.rows);
+    // Exclude verification_docs from public API response
+    const apartmentsWithoutDocs = result.rows.map(excludeVerificationDocs);
+    res.json(apartmentsWithoutDocs);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch featured apartments" });
@@ -236,7 +249,8 @@ router.get("/:id", async (req, res) => {
       [apartment.id]
     );
 
-    res.json(apartment);
+    // Exclude verification_docs from public API response
+    res.json(excludeVerificationDocs(apartment));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch apartment" });
@@ -294,6 +308,7 @@ router.post("/", authMiddleware, async (req, res) => {
       bathrooms,
       area,
       amenities = [],
+      verificationDocs = [],
       isFeatured = false,
       isActive = true,
       landlordId,
@@ -353,9 +368,9 @@ router.post("/", authMiddleware, async (req, res) => {
     const result = await db.query(
       `INSERT INTO apartments (
         title, description, images, price, price_unit, wilaya, wilaya_id,
-        municipality, rooms, bathrooms, area, amenities, is_featured, is_active,
+        municipality, rooms, bathrooms, area, amenities, verification_docs, is_featured, is_active,
         landlord_id, landlord_phone, landlord_name, firebase_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *`,
       [
         title,
@@ -370,6 +385,7 @@ router.post("/", authMiddleware, async (req, res) => {
         parseInt(bathrooms),
         parseFloat(area),
         JSON.stringify(amenities),
+        JSON.stringify(Array.isArray(verificationDocs) ? verificationDocs : []),
         isFeatured,
         isActive,
         landlordUid,
@@ -388,10 +404,32 @@ router.post("/", authMiddleware, async (req, res) => {
 
 // Update apartment
 // PUT /api/apartments/:id
+/**
+ * UPDATE /api/apartments/:id
+ * With Security Watcher: Auto-invalidate verification if sensitive fields change
+ */
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    // Fetch current apartment to check verification status
+    const currentAptResult = await db.query(
+      `SELECT id, verification_status, landlord_id FROM apartments 
+       WHERE id::text = $1 OR firebase_id = $1`,
+      [id]
+    );
+
+    if (currentAptResult.rows.length === 0) {
+      return res.status(404).json({ error: "Apartment not found" });
+    }
+
+    const currentApt = currentAptResult.rows[0];
+    const isVerified = currentApt.verification_status === 'verified';
+
+    // Sensitive fields that trigger verification invalidation
+    const sensitiveFields = ["title", "address", "wilaya", "wilaya_id", "latitude", "longitude"];
+    const updatingsSensitiveField = sensitiveFields.some(field => updates.hasOwnProperty(field));
 
     // Build dynamic update query
     const allowedFields = [
@@ -412,6 +450,9 @@ router.put("/:id", authMiddleware, async (req, res) => {
       "landlord_phone",
       "landlord_name",
       "status",
+      "verification_docs",
+      "verification_status",
+      "verification_feedback",
     ];
 
     const updateFields = [];
@@ -423,7 +464,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
         updateFields.push(`${key} = $${paramCount}`);
         
         // Handle JSON fields
-        if (key === "images" || key === "amenities") {
+        if (key === "images" || key === "amenities" || key === "verification_docs") {
           updateValues.push(JSON.stringify(value));
         } else if (key === "price" || key === "area") {
           updateValues.push(parseFloat(value));
@@ -439,11 +480,25 @@ router.put("/:id", authMiddleware, async (req, res) => {
       }
     }
 
+    // SECURITY WATCHER: Auto-invalidate verification
+    if (isVerified && updatingsSensitiveField) {
+      updateFields.push(`verification_status = $${paramCount}`);
+      updateValues.push('pending');
+      paramCount++;
+
+      updateFields.push(`verification_feedback = $${paramCount}`);
+      updateValues.push(null);
+      paramCount++;
+
+      // Log for debugging
+      console.log(`[SECURITY WATCHER] Verification invalidated for apartment ${id} due to sensitive field update`);
+    }
+
     if (updateFields.length === 0) {
       return res.status(400).json({ error: "No valid fields to update" });
     }
 
-    // Add id and updated_at to query
+    // Add updated_at to query
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
     updateValues.push(id);
 
@@ -457,7 +512,25 @@ router.put("/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Apartment not found" });
     }
 
-    res.json(result.rows[0]);
+    const updatedApartment = result.rows[0];
+
+    // Send notification if verification was invalidated
+    if (isVerified && updatingsSensitiveField) {
+      try {
+        await createNotification(
+          currentApt.landlord_id,
+          null,
+          'system',
+          updatedApartment.id,
+          'تم إعادة تعيين حالة التوثيق للمراجعة بسبب تعديل بيانات أساسية في الشقة.',
+          `/apartment/${updatedApartment.id}`
+        );
+      } catch (err) {
+        console.error('Error creating notification:', err);
+      }
+    }
+
+    res.json(updatedApartment);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to update apartment" });

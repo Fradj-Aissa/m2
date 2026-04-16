@@ -19,6 +19,7 @@ import {
   WashingMachine,
   ChevronLeft,
   ChevronRight,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -310,7 +311,20 @@ const ApartmentDetail = () => {
 
               <Separator />
 
-              {/* Amenities */}
+              {/* Verification Badge */}
+              {apartment.verification_status === 'verified' && (
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-100">عقار موثق</h3>
+                  </div>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    تم التحقق من ملكية هذا العقار من قبل إدارة SmartRentDZ. يمكنك التعامل معه بثقة.
+                  </p>
+                </div>
+              )}
+
+              <Separator />
               <div>
                 <h2 className="text-xl font-semibold mb-4">المرافق والخدمات</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
