@@ -43,3 +43,48 @@
 2026-04-15 20:51:56,011 - INFO - ==================================================
 2026-04-15 20:51:56,011 - INFO - Training completed successfully!
 2026-04-15 20:51:56,011 - INFO - ==================================================
+2026-04-16 14:37:57,472 - INFO - ==================================================
+2026-04-16 14:37:57,477 - INFO - SmartRentDZ ML Training Pipeline Started
+2026-04-16 14:37:57,478 - INFO - ==================================================
+2026-04-16 14:37:57,478 - INFO - Loading data from airbnb_algeria_data.json
+2026-04-16 14:37:57,534 - INFO - Loaded 500 records
+2026-04-16 14:37:57,536 - INFO - Starting data cleaning process...
+2026-04-16 14:37:57,547 - INFO - Removed 0 records with null prices
+2026-04-16 14:37:57,615 - INFO - Data cleaning complete
+2026-04-16 14:37:57,615 - INFO - Handling outliers using iqr method...
+2026-04-16 14:37:57,661 - INFO - Price range: -112.50 - 22787.50
+2026-04-16 14:37:57,678 - INFO - Removed 0 outlier records (0.00%)
+2026-04-16 14:37:57,678 - INFO - Performing feature engineering...
+2026-04-16 14:37:57,706 - INFO - Feature engineering complete
+2026-04-16 14:37:57,706 - INFO - Encoding categorical features: ['wilaya', 'property_type']
+2026-04-16 14:37:57,707 - WARNING - Column wilaya not found in dataframe
+2026-04-16 14:37:57,709 - INFO - Encoded property_type: 5 unique values
+2026-04-16 14:37:57,709 - INFO - Using 12 features: ['accommodates', 'bedrooms', 'bathrooms', 'minimum_nights', 'number_of_reviews', 'review_scores_rating', 'availability_365', 'price_per_person', 'price_per_bedroom', 'review_score_normalized', 'has_reviewed', 'property_type_encoded']
+2026-04-16 14:37:57,718 - INFO - Final dataset shape: X=(500, 12), y=(500,)
+2026-04-16 14:37:57,720 - INFO - Price statistics - Mean: 11386.60, Std: 3786.85
+2026-04-16 14:37:57,728 - INFO - Starting model training...
+2026-04-16 14:37:57,742 - INFO - Training set size: 400, Test set size: 100
+2026-04-16 14:37:58,585 - INFO - Model Performance:
+2026-04-16 14:37:58,586 - INFO -   Train R²: 0.9967
+2026-04-16 14:37:58,586 - INFO -   Test R²: 0.9746
+2026-04-16 14:37:58,587 - INFO -   Test RMSE: 598.05 DZD
+2026-04-16 14:37:58,588 - INFO -   Test MAE: 329.74 DZD
+2026-04-16 14:37:58,758 - INFO - Model saved to models\random_forest_model.joblib
+2026-04-16 14:37:58,762 - INFO - Label encoders saved to models\label_encoders.joblib
+2026-04-16 14:37:58,764 - INFO - Features list saved to models\features.joblib
+2026-04-16 14:37:58,767 - INFO - Feature means saved to models\feature_means.joblib
+2026-04-16 14:37:58,848 - INFO - Metadata saved to models\metadata.json
+2026-04-16 14:37:58,849 - INFO - Top 10 Important Features:
+2026-04-16 14:37:58,932 - INFO -   price_per_person: 0.3331
+2026-04-16 14:37:58,933 - INFO -   accommodates: 0.3226
+2026-04-16 14:37:58,934 - INFO -   price_per_bedroom: 0.2234
+2026-04-16 14:37:58,934 - INFO -   bedrooms: 0.0807
+2026-04-16 14:37:58,934 - INFO -   bathrooms: 0.0327
+2026-04-16 14:37:58,935 - INFO -   availability_365: 0.0029
+2026-04-16 14:37:58,935 - INFO -   number_of_reviews: 0.0016
+2026-04-16 14:37:58,936 - INFO -   minimum_nights: 0.0008
+2026-04-16 14:37:58,936 - INFO -   review_scores_rating: 0.0008
+2026-04-16 14:37:58,937 - INFO -   property_type_encoded: 0.0007
+2026-04-16 14:37:58,937 - INFO - ==================================================
+2026-04-16 14:37:58,938 - INFO - Training completed successfully!
+2026-04-16 14:37:58,939 - INFO - ==================================================

@@ -516,17 +516,17 @@ const AddApartment = () => {
                   </div>
                   {aiConfidence !== null && (
                     <p className="text-xs text-muted-foreground">
-                      AI Confidence: {(aiConfidence * 100).toFixed(0)}%
+                      ثقة الذكاء الاصطناعي: {(aiConfidence * 100).toFixed(0)}%
                     </p>
                   )}
                   {lastPredictedPrice !== null && (
                     <p className="text-xs text-muted-foreground">
-                      AI Suggested Price: {Math.round(lastPredictedPrice).toLocaleString("en-US")} د.ج
+                      السعر المقترح: {Math.round(lastPredictedPrice).toLocaleString("en-US")} د.ج
                     </p>
                   )}
                   {showPriceSuggestion && (
                     <p className="text-xs text-amber-700">
-                      Consider lowering your price to match market demand.
+                      يجب عليك خفض السعر لمطابقة طلب السوق.
                     </p>
                   )}
                 </div>

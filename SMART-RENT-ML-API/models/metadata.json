@@ -1,7 +1,7 @@
 {
     "model_type": "RandomForestRegressor",
     "n_estimators": 200,
-    "training_date": "20260415_205155",
+    "training_date": "20260416_143758",
     "features": [
         "accommodates",
         "bedrooms",
