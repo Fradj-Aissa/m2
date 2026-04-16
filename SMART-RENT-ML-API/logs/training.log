@@ -1,0 +1,45 @@
+2026-04-15 20:51:53,392 - INFO - ==================================================
+2026-04-15 20:51:53,393 - INFO - SmartRentDZ ML Training Pipeline Started
+2026-04-15 20:51:53,394 - INFO - ==================================================
+2026-04-15 20:51:53,394 - INFO - Loading data from airbnb_algeria_data.json
+2026-04-15 20:51:53,444 - INFO - Loaded 500 records
+2026-04-15 20:51:53,445 - INFO - Starting data cleaning process...
+2026-04-15 20:51:53,454 - INFO - Removed 0 records with null prices
+2026-04-15 20:51:54,044 - INFO - Data cleaning complete
+2026-04-15 20:51:54,078 - INFO - Handling outliers using iqr method...
+2026-04-15 20:51:54,088 - INFO - Price range: -112.50 - 22787.50
+2026-04-15 20:51:54,099 - INFO - Removed 0 outlier records (0.00%)
+2026-04-15 20:51:54,171 - INFO - Performing feature engineering...
+2026-04-15 20:51:54,231 - INFO - Feature engineering complete
+2026-04-15 20:51:54,277 - INFO - Encoding categorical features: ['wilaya', 'property_type']
+2026-04-15 20:51:54,295 - WARNING - Column wilaya not found in dataframe
+2026-04-15 20:51:54,328 - INFO - Encoded property_type: 5 unique values
+2026-04-15 20:51:54,349 - INFO - Using 12 features: ['accommodates', 'bedrooms', 'bathrooms', 'minimum_nights', 'number_of_reviews', 'review_scores_rating', 'availability_365', 'price_per_person', 'price_per_bedroom', 'review_score_normalized', 'has_reviewed', 'property_type_encoded']
+2026-04-15 20:51:54,371 - INFO - Final dataset shape: X=(500, 12), y=(500,)
+2026-04-15 20:51:54,385 - INFO - Price statistics - Mean: 11386.60, Std: 3786.85
+2026-04-15 20:51:54,393 - INFO - Starting model training...
+2026-04-15 20:51:54,409 - INFO - Training set size: 400, Test set size: 100
+2026-04-15 20:51:55,671 - INFO - Model Performance:
+2026-04-15 20:51:55,672 - INFO -   Train R²: 0.9967
+2026-04-15 20:51:55,674 - INFO -   Test R²: 0.9746
+2026-04-15 20:51:55,676 - INFO -   Test RMSE: 598.05 DZD
+2026-04-15 20:51:55,676 - INFO -   Test MAE: 329.74 DZD
+2026-04-15 20:51:55,850 - INFO - Model saved to models\random_forest_model.joblib
+2026-04-15 20:51:55,853 - INFO - Label encoders saved to models\label_encoders.joblib
+2026-04-15 20:51:55,855 - INFO - Features list saved to models\features.joblib
+2026-04-15 20:51:55,857 - INFO - Feature means saved to models\feature_means.joblib
+2026-04-15 20:51:55,931 - INFO - Metadata saved to models\metadata.json
+2026-04-15 20:51:55,931 - INFO - Top 10 Important Features:
+2026-04-15 20:51:56,006 - INFO -   price_per_person: 0.3331
+2026-04-15 20:51:56,006 - INFO -   accommodates: 0.3226
+2026-04-15 20:51:56,007 - INFO -   price_per_bedroom: 0.2234
+2026-04-15 20:51:56,008 - INFO -   bedrooms: 0.0807
+2026-04-15 20:51:56,008 - INFO -   bathrooms: 0.0327
+2026-04-15 20:51:56,008 - INFO -   availability_365: 0.0029
+2026-04-15 20:51:56,009 - INFO -   number_of_reviews: 0.0016
+2026-04-15 20:51:56,009 - INFO -   minimum_nights: 0.0008
+2026-04-15 20:51:56,010 - INFO -   review_scores_rating: 0.0008
+2026-04-15 20:51:56,010 - INFO -   property_type_encoded: 0.0007
+2026-04-15 20:51:56,011 - INFO - ==================================================
+2026-04-15 20:51:56,011 - INFO - Training completed successfully!
+2026-04-15 20:51:56,011 - INFO - ==================================================

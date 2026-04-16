@@ -9,6 +9,7 @@ export interface Subscription {
   plan_name: PlanName;
   price: number;
   receipt_image?: string | null;
+  admin_feedback?: string | null;
   status: "pending" | "active" | "expired" | "rejected";
   start_date?: string | null;
   end_date?: string | null;
@@ -49,33 +50,41 @@ export async function fetchPendingSubscriptions() {
   return response.data;
 }
 
-export async function approveSubscription(id: string) {
+export async function updateSubscriptionStatus(id: string, status: "active" | "rejected", feedback?: string | null) {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
+  
   try {
+    // Build the correct URL - apiBase already contains /api
+    const url = `${apiBase}/admin/subscriptions/${id}/status`;
+    console.log("Calling updateSubscriptionStatus with URL:", url, { status, feedback });
+    
     const response = await axios.patch<{ subscription: Subscription }>(
-      `${apiBase}/subscriptions/admin/${id}/approve`,
-      {},
+      url,
+      { status, feedback },
       {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }
     );
+    console.log("Success response:", response.data);
     return response.data.subscription;
   } catch (err: any) {
+    console.error("Full Error in updateSubscriptionStatus:", {
+      message: err?.message,
+      response: err?.response?.data,
+      status: err?.response?.status,
+      fullError: err
+    });
     const message = err?.response?.data?.error || err?.message || "Server error";
     throw new Error(message);
   }
 }
 
-export async function rejectSubscription(id: string) {
+export async function fetchMySubscriptions() {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  const response = await axios.patch<{ subscription: Subscription }>(
-    `${apiBase}/subscriptions/admin/${id}/reject`,
-    {},
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    }
-  );
-  return response.data.subscription;
+  const response = await axios.get<Subscription[]>(`${apiBase}/subscriptions/mine`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return response.data;
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, Crown, Star, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -11,12 +11,16 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { requestSubscription, PlanName } from "@/services/subscriptionService";
+import {
+  requestSubscription,
+  PlanName,
+  fetchMySubscriptions,
+  Subscription as SubRecord,
+} from "@/services/subscriptionService";
 
 type Feature = { label: string; value: string };
 
@@ -35,10 +39,10 @@ const planDetails: Record<
     price: 0,
     period: "",
     icon: Star,
-    cta: "ابدأ مجاناً",
+    cta: "ابدأ مجانًا",
     features: [
       { label: "عدد الشقق", value: "1" },
-      { label: "مدة الإعلان", value: "15 يوماً" },
+      { label: "مدة الإعلان", value: "15 يومًا" },
       { label: "ترتيب الظهور", value: "منخفض" },
       { label: "عدد الصور", value: "5" },
       { label: "الإحصائيات", value: "مشاهدات فقط" },
@@ -52,7 +56,7 @@ const planDetails: Record<
     cta: "اشترك الآن",
     features: [
       { label: "عدد الشقق", value: "3" },
-      { label: "مدة الإعلان", value: "30 يوماً" },
+      { label: "مدة الإعلان", value: "30 يومًا" },
       { label: "ترتيب الظهور", value: "عادي" },
       { label: "عدد الصور", value: "10" },
       { label: "الإحصائيات", value: "مشاهدات + نقرات" },
@@ -66,7 +70,7 @@ const planDetails: Record<
     cta: "اشترك الآن",
     features: [
       { label: "عدد الشقق", value: "10" },
-      { label: "مدة الإعلان", value: "30 يوماً" },
+      { label: "مدة الإعلان", value: "30 يومًا" },
       { label: "ترتيب الظهور", value: "أولوية" },
       { label: "عدد الصور", value: "20" },
       { label: "الإحصائيات", value: "إحصائيات متقدمة" },
@@ -87,16 +91,44 @@ const Subscription = () => {
   const [selectedPlan, setSelectedPlan] = useState<PlanName | null>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<SubRecord[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
+
+  const isRenter = userData?.type === "renter";
 
   const activePlan: PlanName = useMemo(() => {
     const plan = (userData?.current_plan as PlanName) || "Free";
     return planDetails[plan] ? plan : "Free";
   }, [userData?.current_plan]);
 
+  const latestSubscription = subscriptions[0];
+  const pendingReview = latestSubscription?.status === "pending";
+  const rejected = latestSubscription?.status === "rejected";
+
+  useEffect(() => {
+    const load = async () => {
+      if (!userData?.uid) return;
+      setLoadingSubs(true);
+      try {
+        const data = await fetchMySubscriptions();
+        setSubscriptions(data);
+      } catch (error) {
+        console.error("Failed to load subscriptions", error);
+      } finally {
+        setLoadingSubs(false);
+      }
+    };
+    void load();
+  }, [userData?.uid]);
+
   const openModal = (plan: PlanName) => {
     if (plan === activePlan) return;
     if (plan === "Free") {
       toast({ title: "أنت على الخطة المجانية بالفعل" });
+      return;
+    }
+    if (pendingReview) {
+      toast({ title: "طلبك قيد المراجعة", description: "انتظر رد الإدارة قبل تقديم طلب جديد" });
       return;
     }
     setSelectedPlan(plan);
@@ -108,7 +140,7 @@ const Subscription = () => {
       await navigator.clipboard.writeText(text);
       toast({ title: "تم النسخ" });
     } catch {
-      toast({ title: "تعذر النسخ، انسخها يدوياً", variant: "destructive" });
+      toast({ title: "تعذر النسخ، انسخها يدويًا", variant: "destructive" });
     }
   };
 
@@ -127,16 +159,62 @@ const Subscription = () => {
       });
       setModalOpen(false);
       setReceipt(null);
+      const data = await fetchMySubscriptions();
+      setSubscriptions(data);
     } catch (error: any) {
       toast({
         title: "فشل إرسال الطلب",
-        description: error?.message || "حاول مجدداً",
+        description: error?.message || "حاول مجددًا",
         variant: "destructive",
       });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const renderStatusNotice = () => {
+    if (pendingReview) {
+      return (
+        <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-900">
+          طلبك قيد المراجعة. ستصلك نتيجة المراجعة قريبًا.
+        </div>
+      );
+    }
+    if (rejected) {
+      return (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
+          <div className="font-semibold">تم رفض الاشتراك</div>
+          <div className="text-sm">
+            السبب: {latestSubscription?.admin_feedback || "لم يتم تقديم سبب"}
+          </div>
+          <div className="mt-3">
+            <Button
+              variant="outline"
+              onClick={() => openModal((latestSubscription?.plan_name as PlanName) || "Basic")}
+            >
+              التقديم مجددًا
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (isRenter) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted/30">
+        <Header />
+        <main className="flex-1 container py-16">
+          <h1 className="text-3xl font-bold mb-4">الاشتراكات</h1>
+          <p className="text-muted-foreground text-lg">
+            ميزات حصرية للمستأجرين قادمة قريبًا! تابعنا لمعرفة التحديثات القادمة.
+          </p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -148,21 +226,31 @@ const Subscription = () => {
             <p className="text-primary-foreground/80 max-w-2xl mx-auto">
               اختر الخطة الأنسب لعدد شققك ومستوى الظهور الذي تريده، وفعّلها عبر CCP أو Baridimob.
             </p>
+            <div>
+              <Badge className="bg-white/20 text-white">
+                الخطة الحالية: {activePlan}
+              </Badge>
+            </div>
           </div>
         </section>
 
         <section className="container py-12">
+          {renderStatusNotice()}
+
+          <div className="mb-4 text-sm text-muted-foreground">
+            {loadingSubs ? "جارٍ جلب حالة الاشتراك..." : latestSubscription ? `آخر حالة: ${latestSubscription.status}` : ""}
+          </div>
+
           <div className="grid gap-6 md:grid-cols-3">
             {(Object.keys(planDetails) as PlanName[]).map((planKey) => {
               const plan = planDetails[planKey];
-              const isActive = planKey === activePlan;
+              const isActive = planKey === activePlan && !rejected;
+              const disabled = isActive || pendingReview;
               const Icon = plan.icon;
               return (
                 <Card
                   key={planKey}
-                  className={`relative h-full ${
-                    plan.highlight ? "border-primary shadow-lg ring-2 ring-primary/15" : ""
-                  }`}
+                  className={`relative h-full ${plan.highlight ? "border-primary shadow-lg ring-2 ring-primary/15" : ""}`}
                 >
                   <CardHeader className="space-y-3 text-center">
                     {plan.highlight && (
@@ -183,7 +271,7 @@ const Subscription = () => {
                       <CardTitle className="text-xl">{planKey}</CardTitle>
                       <CardDescription className="text-base font-semibold text-foreground">
                         {plan.price === 0 ? (
-                          "مجاني دائماً"
+                          "مجاني دائمًا"
                         ) : (
                           <>
                             {plan.price.toLocaleString("ar-DZ")} د.ج{" "}
@@ -208,10 +296,10 @@ const Subscription = () => {
                     <Button
                       className="w-full"
                       variant={plan.highlight ? "default" : "outline"}
-                      disabled={isActive}
+                      disabled={disabled}
                       onClick={() => openModal(planKey)}
                     >
-                      {isActive ? "الخطة الحالية" : plan.cta}
+                      {isActive ? "الخطة الحالية" : pendingReview ? "طلب قيد المراجعة" : plan.cta}
                     </Button>
                   </CardContent>
                 </Card>
@@ -223,7 +311,6 @@ const Subscription = () => {
       <Footer />
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogTrigger asChild />
         <DialogContent className="max-w-lg w-[calc(100vw-2rem)]">
           <DialogHeader>
             <DialogTitle>إتمام الدفع لخطة {selectedPlan}</DialogTitle>
@@ -257,11 +344,7 @@ const Subscription = () => {
 
             <div className="space-y-2">
               <p className="text-sm font-medium">إيصال الدفع</p>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setReceipt(e.target.files?.[0] || null)}
-              />
+              <Input type="file" accept="image/*" onChange={(e) => setReceipt(e.target.files?.[0] || null)} />
               <p className="text-xs text-muted-foreground">
                 يرجى دفع المبلغ عبر CCP/Baridimob ثم رفع صورة الإيصال هنا. التحقق يستغرق حتى 24 ساعة.
               </p>

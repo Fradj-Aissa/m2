@@ -29,6 +29,27 @@ const PLAN_PRICING = {
   Pro: 3900,
 };
 
+async function notifyStatusChange({ subscription, status, feedback, adminId }) {
+  try {
+    const message =
+      status === 'active'
+        ? `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `ملاحظة: ${feedback}` : ''}`
+        : `❌ تم رفض اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `السبب: ${feedback}` : ''}`;
+
+    await createNotification({
+      recipientId: subscription.user_id,
+      senderId: adminId,
+      type: status === 'active' ? 'approval' : 'system',
+      apartmentId: null,
+      message,
+      link: '/subscription',
+    });
+  } catch (notifyError) {
+    console.error('Notification send failed:', notifyError);
+  }
+}
+
+// Request a paid subscription (Basic/Pro)
 router.post('/request', authMiddleware, upload.single('receipt'), async (req, res) => {
   try {
     const userId = req.user?.uid;
@@ -64,6 +85,7 @@ router.post('/request', authMiddleware, upload.single('receipt'), async (req, re
   }
 });
 
+// Current user's subscriptions
 router.get('/mine', authMiddleware, async (req, res) => {
   try {
     const userId = req.user?.uid;
@@ -83,110 +105,93 @@ router.get('/mine', authMiddleware, async (req, res) => {
   }
 });
 
-router.patch('/admin/:id/approve', authMiddleware, isAdmin, async (req, res) => {
+async function updateStatusHandler(req, res) {
   try {
     const { id } = req.params;
-    const subscriptionResult = await db.query(
-      'SELECT * FROM subscriptions WHERE id = $1',
-      [id]
-    );
+    const { status, feedback = null } = req.body;
 
+    if (!['active', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'status must be active or rejected' });
+    }
+
+    const subscriptionResult = await db.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
     if (subscriptionResult.rows.length === 0) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
-
     const subscription = subscriptionResult.rows[0];
 
     if (!subscription.user_id || !subscription.plan_name) {
-      console.error('Invalid subscription data', subscription);
       return res.status(400).json({ error: 'Invalid subscription data' });
     }
 
-    const updated = await db.query(
-      `UPDATE subscriptions
-       SET status = 'active',
-           start_date = NOW(),
-           end_date = NOW() + INTERVAL '30 days'
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
+    let updated;
+    if (status === 'active') {
+      updated = await db.query(
+        `UPDATE subscriptions
+         SET status = 'active',
+             admin_feedback = $2,
+             start_date = NOW(),
+             end_date = NOW() + INTERVAL '30 days'
+         WHERE id = $1
+         RETURNING *`,
+        [id, feedback]
+      );
 
-    await db.query(
-      `UPDATE users
-       SET current_plan = $2,
-           subscription_id = $1
-       WHERE uid = $3`,
-      [id, subscription.plan_name, subscription.user_id]
-    );
+      await db.query(
+        `UPDATE users
+         SET current_plan = $2,
+             subscription_id = $1
+         WHERE uid = $3`,
+        [id, subscription.plan_name, subscription.user_id]
+      );
+    } else {
+      updated = await db.query(
+        `UPDATE subscriptions
+         SET status = 'rejected',
+             admin_feedback = $2,
+             start_date = NULL,
+             end_date = NULL
+         WHERE id = $1
+         RETURNING *`,
+        [id, feedback]
+      );
 
-    try {
-      await createNotification({
-        recipientId: subscription.user_id,
-        senderId: req.user.uid,
-        type: 'approval',
-        apartmentId: null,
-        message: `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name} بنجاح! شكراً لثقتك`,
-        link: '/subscription',
-      });
-    } catch (notifyError) {
-      console.error('Notification send failed:', notifyError);
+      await db.query(
+        `UPDATE users SET subscription_id = NULL, current_plan = 'Free'
+         WHERE uid = $1`,
+        [subscription.user_id]
+      );
     }
+
+    await notifyStatusChange({
+      subscription,
+      status,
+      feedback,
+      adminId: req.user.uid,
+    });
 
     res.json({ subscription: updated.rows[0] });
   } catch (error) {
-    console.error('Error approving subscription:', error);
-    res.status(500).json({ error: 'Failed to approve subscription' });
+    console.error('Error updating subscription status:', error);
+    res.status(500).json({ error: 'Failed to update subscription status' });
   }
+}
+
+// Unified admin status update with feedback
+router.patch('/admin/:id/status', authMiddleware, isAdmin, updateStatusHandler);
+
+// Backward-compatibility routes delegate to unified handler
+router.patch('/admin/:id/approve', authMiddleware, isAdmin, (req, res) => {
+  req.body = { status: 'active', feedback: null };
+  return updateStatusHandler(req, res);
 });
 
-router.patch('/admin/:id/reject', authMiddleware, isAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const subscriptionResult = await db.query(
-      'SELECT * FROM subscriptions WHERE id = $1',
-      [id]
-    );
-
-    if (subscriptionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Subscription not found' });
-    }
-
-    const subscription = subscriptionResult.rows[0];
-
-    const updated = await db.query(
-      `UPDATE subscriptions
-       SET status = 'rejected'
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    await db.query(
-      `UPDATE users SET subscription_id = NULL WHERE uid = $1 AND subscription_id = $2`,
-      [subscription.user_id, id]
-    );
-
-    try {
-      await createNotification({
-        recipientId: subscription.user_id,
-        senderId: req.user.uid,
-        type: 'approval',
-        apartmentId: null,
-        message: `❌ نعتذر، تم رفض إيصال الدفع لاشتراك ${subscription.plan_name}. يرجى التأكد والمحاولة مجدداً.`,
-        link: '/subscription',
-      });
-    } catch (notifyError) {
-      console.error('Notification send failed:', notifyError);
-    }
-
-    res.json({ subscription: updated.rows[0] });
-  } catch (error) {
-    console.error('Error rejecting subscription:', error);
-    res.status(500).json({ error: 'Failed to reject subscription' });
-  }
+router.patch('/admin/:id/reject', authMiddleware, isAdmin, (req, res) => {
+  req.body = { status: 'rejected', feedback: null };
+  return updateStatusHandler(req, res);
 });
 
+// Pending list for admin
 router.get('/admin/pending', authMiddleware, isAdmin, async (_req, res) => {
   try {
     const result = await db.query(

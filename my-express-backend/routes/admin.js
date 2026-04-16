@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/isAdmin');
+const { createNotification } = require('../services/notifications');
 
 /**
  * GET /api/admin/stats
@@ -36,6 +37,89 @@ router.get('/stats', authMiddleware, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching stats:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+});
+
+/**
+ * PATCH /api/admin/subscriptions/:id/status
+ * body: { status: 'active' | 'rejected', feedback?: string }
+ */
+router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, feedback = null } = req.body;
+
+    if (!['active', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'status must be active or rejected' });
+    }
+
+    const subResult = await db.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
+    if (subResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+    const subscription = subResult.rows[0];
+
+    if (!subscription.user_id || !subscription.plan_name) {
+      return res.status(400).json({ error: 'Invalid subscription data' });
+    }
+
+    let updated;
+    if (status === 'active') {
+      updated = await db.query(
+        `UPDATE subscriptions
+         SET status = 'active',
+             admin_feedback = $2,
+             start_date = NOW(),
+             end_date = NOW() + INTERVAL '30 days'
+         WHERE id = $1
+         RETURNING *`,
+        [id, feedback]
+      );
+
+      await db.query(
+        `UPDATE users SET current_plan = $2, subscription_id = $1 WHERE uid = $3`,
+        [id, subscription.plan_name, subscription.user_id]
+      );
+    } else {
+      updated = await db.query(
+        `UPDATE subscriptions
+         SET status = 'rejected',
+             admin_feedback = $2,
+             start_date = NULL,
+             end_date = NULL
+         WHERE id = $1
+         RETURNING *`,
+        [id, feedback]
+      );
+
+      await db.query(
+        `UPDATE users SET subscription_id = NULL, current_plan = 'Free' WHERE uid = $1`,
+        [subscription.user_id]
+      );
+    }
+
+    try {
+      const message =
+        status === 'active'
+          ? `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `ملاحظة: ${feedback}` : ''}`
+          : `❌ تم رفض اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `السبب: ${feedback}` : ''}`;
+
+      await createNotification({
+        recipientId: subscription.user_id,
+        senderId: req.user.uid,
+        type: status === 'active' ? 'approval' : 'system',
+        apartmentId: null,
+        message,
+        link: '/subscription',
+      });
+    } catch (notifyErr) {
+      console.error('Notification send failed:', notifyErr);
+    }
+
+    res.json({ subscription: updated.rows[0] });
+  } catch (error) {
+    console.error('Error updating subscription status (admin):', error);
+    res.status(500).json({ error: 'Failed to update subscription status' });
   }
 });
 

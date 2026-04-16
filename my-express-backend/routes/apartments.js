@@ -8,6 +8,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
+const PLAN_LIMITS = {
+  Free: { maxProperties: 1, maxImages: 5 },
+  Basic: { maxProperties: 3, maxImages: 10 },
+  Pro: { maxProperties: 10, maxImages: 20 },
+};
+
 /**
  * Upload images to ImgBB
  * POST /api/apartments/upload-images
@@ -76,7 +82,13 @@ router.get("/", async (req, res) => {
   try {
     const { wilayaId, rooms, minPrice, maxPrice, priceUnit, isFeatured, limit = 50, offset = 0 } = req.query;
 
-    let query = "SELECT * FROM apartments WHERE is_active = true";
+    let query = `
+      SELECT a.*, u.current_plan, s.start_date AS subscription_start_date
+      FROM apartments a
+      LEFT JOIN users u ON u.uid = a.landlord_id
+      LEFT JOIN subscriptions s ON s.id = u.subscription_id
+      WHERE a.is_active = true
+    `;
     const params = [];
     let paramCount = 1;
 
@@ -119,48 +131,52 @@ router.get("/", async (req, res) => {
       query += ` AND is_featured = true`;
     }
 
-    // Order by creation date (newest first), add pagination
-    query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    // Order: plan priority, then subscription start_date, then creation date
+    query += ` ORDER BY
+      CASE u.current_plan WHEN 'Pro' THEN 1 WHEN 'Basic' THEN 2 ELSE 3 END,
+      COALESCE(s.start_date, a.created_at) DESC,
+      a.created_at DESC
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), parseInt(offset));
 
     const result = await db.query(query, params);
     
     // Also get total count for pagination metadata
-    let countQuery = "SELECT COUNT(*) as total FROM apartments WHERE is_active = true";
+    let countQuery = "SELECT COUNT(*) as total FROM apartments a WHERE a.is_active = true";
     let countParams = [];
     let countParamCount = 1;
 
     if (wilayaId) {
-      countQuery += ` AND wilaya_id = $${countParamCount}`;
+      countQuery += ` AND a.wilaya_id = $${countParamCount}`;
       countParams.push(parseInt(wilayaId));
       countParamCount++;
     }
     if (priceUnit) {
-      countQuery += ` AND price_unit = $${countParamCount}`;
+      countQuery += ` AND a.price_unit = $${countParamCount}`;
       countParams.push(priceUnit);
       countParamCount++;
     }
     if (rooms) {
       if (parseInt(rooms) >= 4) {
-        countQuery += ` AND rooms >= $${countParamCount}`;
+        countQuery += ` AND a.rooms >= $${countParamCount}`;
       } else {
-        countQuery += ` AND rooms = $${countParamCount}`;
+        countQuery += ` AND a.rooms = $${countParamCount}`;
       }
       countParams.push(parseInt(rooms));
       countParamCount++;
     }
     if (minPrice) {
-      countQuery += ` AND price >= $${countParamCount}`;
+      countQuery += ` AND a.price >= $${countParamCount}`;
       countParams.push(parseFloat(minPrice));
       countParamCount++;
     }
     if (maxPrice) {
-      countQuery += ` AND price <= $${countParamCount}`;
+      countQuery += ` AND a.price <= $${countParamCount}`;
       countParams.push(parseFloat(maxPrice));
       countParamCount++;
     }
     if (isFeatured === "true") {
-      countQuery += ` AND is_featured = true`;
+      countQuery += ` AND a.is_featured = true`;
     }
 
     const countResult = await db.query(countQuery, countParams);
@@ -284,8 +300,51 @@ router.post("/", authMiddleware, async (req, res) => {
       landlordName,
     } = req.body;
 
+    const userId = req.user?.uid;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Enforce landlord ownership from token
+    const landlordUid = landlordId || userId;
+    if (landlordId && landlordId !== userId) {
+      return res.status(403).json({ error: "Landlord ID must match authenticated user" });
+    }
+
+    // Fetch plan limits
+    const userResult = await db.query("SELECT current_plan FROM users WHERE uid = $1", [landlordUid]);
+    const currentPlan = userResult.rows[0]?.current_plan || "Free";
+    const planLimits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.Free;
+
+    // Check property count limit
+    const countResult = await db.query(
+      "SELECT COUNT(*)::int AS count FROM apartments WHERE landlord_id = $1",
+      [landlordUid]
+    );
+    if (countResult.rows[0].count >= planLimits.maxProperties) {
+      return res.status(403).json({
+        error: `Plan limit reached: ${currentPlan} allows up to ${planLimits.maxProperties} properties`,
+      });
+    }
+
+    // Normalize images array and enforce per-property image limit
+    let normalizedImages = images;
+    if (typeof images === "string") {
+      try {
+        normalizedImages = JSON.parse(images);
+      } catch (_e) {
+        normalizedImages = [];
+      }
+    }
+    if (!Array.isArray(normalizedImages)) normalizedImages = [];
+    if (normalizedImages.length > planLimits.maxImages) {
+      return res.status(400).json({
+        error: `Plan limit reached: ${currentPlan} allows up to ${planLimits.maxImages} images per property`,
+      });
+    }
+
     // Validation
-    if (!title || !landlordId || !price || !rooms || !bathrooms || !area) {
+    if (!title || !landlordUid || !price || !rooms || !bathrooms || !area) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -299,7 +358,7 @@ router.post("/", authMiddleware, async (req, res) => {
       [
         title,
         description,
-        JSON.stringify(images),
+        JSON.stringify(normalizedImages),
         parseFloat(price),
         priceUnit,
         wilaya,
@@ -311,7 +370,7 @@ router.post("/", authMiddleware, async (req, res) => {
         JSON.stringify(amenities),
         isFeatured,
         isActive,
-        landlordId,
+        landlordUid,
         landlordPhone,
         landlordName,
         `temp_${Date.now()}`, // Temporary firebase_id, will be updated after Firestore migration

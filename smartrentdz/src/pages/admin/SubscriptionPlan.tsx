@@ -7,9 +7,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye } from "lucide-react";
-import { approveSubscription, fetchPendingSubscriptions, rejectSubscription, Subscription } from "@/services/subscriptionService";
+import { fetchPendingSubscriptions, Subscription, updateSubscriptionStatus } from "@/services/subscriptionService";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/lib/api";
+import { Textarea } from "@/components/ui/textarea";
 
 const SubscriptionPlan = () => {
   const { toast } = useToast();
@@ -17,6 +18,7 @@ const SubscriptionPlan = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Subscription | null>(null);
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -35,29 +37,31 @@ const SubscriptionPlan = () => {
     void load();
   }, []);
 
-  const handleApprove = async (id: string) => {
+  const handleStatus = async (id: string, status: "active" | "rejected") => {
+    console.log("🔵 handleStatus called with id:", id, "status:", status, "feedback:", feedback[id]);
     setProcessingId(id);
     try {
-      await approveSubscription(id);
-      toast({ title: "تم تفعيل الاشتراك" });
+      console.log("📤 Sending updateSubscriptionStatus request...");
+      const result = await updateSubscriptionStatus(id, status, feedback[id] || "");
+      console.log("✅ updateSubscriptionStatus succeeded:", result);
+      
+      toast({
+        title: status === "active" ? "تم تفعيل الاشتراك" : "تم رفض الطلب",
+      });
       setPending((prev) => prev.filter((s) => s.id !== id));
       setPreview((prev) => (prev?.id === id ? null : prev));
+      setFeedback((prev) => ({ ...prev, [id]: "" }));
     } catch (err: any) {
-      toast({ title: "فشل التفعيل", description: err?.message || "Server error", variant: "destructive" });
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    setProcessingId(id);
-    try {
-      await rejectSubscription(id);
-      toast({ title: "تم رفض الطلب" });
-      setPending((prev) => prev.filter((s) => s.id !== id));
-      setPreview((prev) => (prev?.id === id ? null : prev));
-    } catch (err: any) {
-      toast({ title: "فشل الرفض", description: err?.message || undefined, variant: "destructive" });
+      console.error("❌ Full Error in handleStatus:", {
+        message: err?.message,
+        error: err,
+        feedback: feedback[id]
+      });
+      toast({
+        title: status === "active" ? "فشل التفعيل" : "فشل الرفض",
+        description: err?.message || "Server error",
+        variant: "destructive",
+      });
     } finally {
       setProcessingId(null);
     }
@@ -89,54 +93,61 @@ const SubscriptionPlan = () => {
             ) : pending.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">لا توجد طلبات معلقة</div>
             ) : (
-              <ScrollArea className="max-h-[480px]">
-                <div className="space-y-4">
+              <ScrollArea className="max-h-[520px]">
+                <div className="space-y-5">
                   {pending.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border p-4"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Badge>{sub.plan_name}</Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {sub.price.toLocaleString("ar-DZ")} د.ج
-                          </span>
+                    <div key={sub.id} className="rounded-xl border p-4 space-y-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge>{sub.plan_name}</Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {sub.price.toLocaleString("ar-DZ")} د.ج
+                            </span>
+                          </div>
+                          <div className="text-sm text-foreground">المستخدم: {sub.user_id}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {sub.created_at ? format(new Date(sub.created_at), "PPP p", { locale: arDZ }) : ""}
+                          </div>
                         </div>
-                        <div className="text-sm text-foreground">
-                          المستخدم: {sub.user_id}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {sub.created_at
-                            ? format(new Date(sub.created_at), "PPP p", { locale: arDZ })
-                            : ""}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {sub.receipt_image ? (
+                        <div className="flex gap-2">
+                          {sub.receipt_image ? (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setPreview(sub)}
+                              title="معاينة الإيصال"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          ) : null}
                           <Button
                             variant="outline"
-                            size="icon"
-                            onClick={() => setPreview(sub)}
-                            title="معاينة الإيصال"
+                            className="text-destructive"
+                            disabled={processingId === sub.id}
+                            onClick={() => handleStatus(sub.id, "rejected")}
                           >
-                            <Eye className="h-4 w-4" />
+                            رفض
                           </Button>
-                        ) : null}
-                        <Button
-                          variant="outline"
-                          className="text-destructive"
-                          disabled={processingId === sub.id}
-                          onClick={() => handleReject(sub.id)}
-                        >
-                          رفض
-                        </Button>
-                        <Button
-                          disabled={processingId === sub.id}
-                          onClick={() => handleApprove(sub.id)}
-                        >
-                          تفعيل
-                        </Button>
+                          <Button disabled={processingId === sub.id} onClick={() => handleStatus(sub.id, "active")}>
+                            تفعيل
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">التعليق / السبب (اختياري)</label>
+                        <Textarea
+                          rows={3}
+                          placeholder="اكتب ملاحظة الموافقة أو سبب الرفض..."
+                          value={feedback[sub.id] || ""}
+                          onChange={(e) =>
+                            setFeedback((prev) => ({
+                              ...prev,
+                              [sub.id]: e.target.value,
+                            }))
+                          }
+                        />
                       </div>
                     </div>
                   ))}
@@ -155,11 +166,7 @@ const SubscriptionPlan = () => {
           </DialogHeader>
           <div className="flex justify-center">
             {preview?.receipt_image ? (
-              <img
-                src={buildReceiptUrl(preview.receipt_image)}
-                alt="Receipt"
-                className="max-h-[70vh] w-full object-contain"
-              />
+              <img src={buildReceiptUrl(preview.receipt_image)} alt="Receipt" className="max-h-[70vh] w-full object-contain" />
             ) : (
               <div className="text-muted-foreground">لا يوجد إيصال</div>
             )}
@@ -174,14 +181,11 @@ const SubscriptionPlan = () => {
                   variant="outline"
                   className="text-destructive"
                   disabled={processingId === preview.id}
-                  onClick={() => handleReject(preview.id)}
+                  onClick={() => handleStatus(preview.id, "rejected")}
                 >
                   رفض
                 </Button>
-                <Button
-                  disabled={processingId === preview.id}
-                  onClick={() => handleApprove(preview.id)}
-                >
+                <Button disabled={processingId === preview.id} onClick={() => handleStatus(preview.id, "active")}>
                   تفعيل
                 </Button>
               </>

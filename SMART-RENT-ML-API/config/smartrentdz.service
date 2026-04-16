@@ -1,0 +1,26 @@
+[Unit]
+Description=SmartRentDZ AI API Service
+After=network.target
+
+[Service]
+Type=notify
+User=smartrentdz
+Group=smartrentdz
+WorkingDirectory=/opt/smartrentdz
+Environment="PATH=/opt/smartrentdz/venv/bin"
+ExecStart=/opt/smartrentdz/venv/bin/gunicorn \
+    --config /opt/smartrentdz/config/gunicorn_config.py \
+    app.main:app
+
+# Restart policy
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
