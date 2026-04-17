@@ -1,0 +1,17 @@
+{
+  "name": "airbnb-algeria-scraper",
+  "version": "1.0.0",
+  "description": "Robust Airbnb scraper for Algerian cities using Playwright and __NEXT_DATA__ strategy",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0",
+    "axios": "^1.7.9",
+    "random-useragent": "^0.5.0"
+  },
+  "keywords": ["airbnb", "scraper", "algeria", "playwright"],
+  "license": "MIT"
+}
