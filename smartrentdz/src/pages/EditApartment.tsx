@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Upload, X, MapPin, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { wilayas } from "@/data/wilayas";
+import { wilayaCoordinates } from "@/data/wilayaCoordinates";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getApartmentById,
@@ -24,6 +25,8 @@ import {
   Apartment,
 } from "@/services/apartmentService";
 import { uploadImagesToImgBB } from "@/services/imageService";
+
+const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 const amenitiesList = [
   "واي فاي",
@@ -48,6 +51,7 @@ const EditApartment = () => {
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const [flyToCoords, setFlyToCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -59,6 +63,8 @@ const EditApartment = () => {
     bathrooms: "",
     area: "",
     amenities: [] as string[],
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
   useEffect(() => {
@@ -83,6 +89,8 @@ const EditApartment = () => {
           bathrooms: apt.bathrooms.toString(),
           area: apt.area.toString(),
           amenities: apt.amenities,
+          lat: apt.lat || null,
+          lng: apt.lng || null,
         });
       } catch (error) {
         console.error("Error fetching apartment:", error);
@@ -155,6 +163,8 @@ const EditApartment = () => {
         bathrooms: parseInt(formData.bathrooms),
         area: parseInt(formData.area),
         amenities: formData.amenities,
+        lat: formData.lat || undefined,
+        lng: formData.lng || undefined,
       });
 
       toast({ title: "تم تحديث الشقة بنجاح" });
@@ -257,7 +267,14 @@ const EditApartment = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>الولاية</Label>
-                  <Select value={formData.wilayaId} onValueChange={(v) => setFormData({ ...formData, wilayaId: v })}>
+                  <Select value={formData.wilayaId} onValueChange={(v) => {
+                    setFormData({ ...formData, wilayaId: v });
+                    // Fly map to selected wilaya
+                    const coords = wilayaCoordinates[parseInt(v)];
+                    if (coords) {
+                      setFlyToCoords(coords);
+                    }
+                  }}>
                     <SelectTrigger><SelectValue placeholder="اختر الولاية" /></SelectTrigger>
                     <SelectContent>
                       {wilayas.map((w) => (
@@ -270,6 +287,48 @@ const EditApartment = () => {
                   <Label htmlFor="municipality">البلدية</Label>
                   <Input id="municipality" value={formData.municipality} onChange={(e) => setFormData({ ...formData, municipality: e.target.value })} required />
                 </div>
+              </div>
+
+              {/* Map Picker */}
+              <div className="mt-4">
+                <Label className="mb-2 block">حدد موقع الشقة بدقة على الخريطة (اختياري)</Label>
+                <Suspense
+                  fallback={
+                    <div className="h-[300px] w-full rounded-xl bg-muted animate-pulse flex items-center justify-center border border-border">
+                      <span className="text-muted-foreground text-sm font-medium">جاري تحميل الخريطة...</span>
+                    </div>
+                  }
+                >
+                  <LocationPicker
+                    lat={formData.lat}
+                    lng={formData.lng}
+                    flyToCoords={flyToCoords}
+                    onLocationSelect={(data) => {
+                      setFormData((prev) => {
+                        const newData = { ...prev, lat: data.lat, lng: data.lng };
+                        
+                        // Sync state -> Wilaya Dropdown
+                        if (data.state) {
+                          const matchedWilaya = wilayas.find(
+                            (w) => w.name.includes(data.state!) || data.state!.includes(w.name)
+                          );
+                          if (matchedWilaya) {
+                            newData.wilayaId = matchedWilaya.id.toString();
+                          }
+                        }
+                        
+                        // Sync city/suburb -> Municipality Input
+                        if (data.city || data.suburb) {
+                          newData.municipality = [data.suburb, data.city]
+                            .filter(Boolean)
+                            .join("، ");
+                        }
+
+                        return newData;
+                      });
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
 

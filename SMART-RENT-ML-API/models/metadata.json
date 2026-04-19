@@ -1,33 +1,57 @@
 {
-    "model_type": "RandomForestRegressor",
-    "n_estimators": 200,
-    "training_date": "20260416_143758",
-    "features": [
-        "accommodates",
-        "bedrooms",
-        "bathrooms",
-        "minimum_nights",
-        "number_of_reviews",
-        "review_scores_rating",
-        "availability_365",
-        "price_per_person",
-        "price_per_bedroom",
-        "review_score_normalized",
-        "has_reviewed",
-        "property_type_encoded"
-    ],
-    "feature_importance": {
-        "accommodates": 0.3226046929469245,
-        "bedrooms": 0.08072432079867847,
-        "bathrooms": 0.03273908646190571,
-        "minimum_nights": 0.0008010940677012798,
-        "number_of_reviews": 0.0015565603986235556,
-        "review_scores_rating": 0.0007901496303400356,
-        "availability_365": 0.0028715676100084125,
-        "price_per_person": 0.33311513814541643,
-        "price_per_bedroom": 0.22337266314827,
-        "review_score_normalized": 0.0006859771612076461,
-        "has_reviewed": 0.0,
-        "property_type_encoded": 0.000738749630924086
+  "model_name": "RandomForest",
+  "features": [
+    "beds",
+    "bedrooms",
+    "bathrooms",
+    "guests",
+    "rating",
+    "reviewCount",
+    "lat",
+    "lng",
+    "wilaya_encoded",
+    "neighborhood_encoded",
+    "arabic_duplex",
+    "arabic_sea_view",
+    "arabic_furnished",
+    "arabic_ac_equipped",
+    "arabic_stylish",
+    "arabic_spacious",
+    "arabic_garage",
+    "arabic_garden",
+    "arabic_balcony",
+    "arabic_villa",
+    "arabic_apartment",
+    "arabic_luxury",
+    "arabic_swimming_pool",
+    "arabic_parking"
+  ],
+  "cv_results": {
+    "XGBoost": {
+      "mae": 774.795166015625,
+      "mae_std": 46.42367341643585,
+      "rmse": 1169.4758227513726,
+      "r2": 0.33908125162124636
+    },
+    "CatBoost": {
+      "mae": 756.4337863041179,
+      "mae_std": 56.550654522717196,
+      "rmse": 1098.3323533295156,
+      "r2": 0.4230991125240185
+    },
+    "RandomForest": {
+      "mae": 697.7149757123145,
+      "mae_std": 48.53562791766113,
+      "rmse": 1052.4941499259835,
+      "r2": 0.4672354918368507
     }
+  },
+  "best_cv_mae": 697.7149757123145,
+  "dataset_samples": 319,
+  "target_stats": {
+    "mean": 6304.849529780564,
+    "std": 1454.7588280288132,
+    "min": 5000.0,
+    "max": 11055.0
+  }
 }

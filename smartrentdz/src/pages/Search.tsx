@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Filter, SlidersHorizontal, Grid, List } from "lucide-react";
+import { Filter, SlidersHorizontal, Grid, List, MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,6 +27,23 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { addToFavorites, removeFromFavorites, getUserFavorites } from "@/services/favoritesService";
 
+const NearbySearchMap = lazy(() => import("@/components/NearbySearchMap"));
+
+// Haversine formula
+export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -36,6 +53,11 @@ const Search = () => {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Map / Nearby Search State
+  const [isMapMode, setIsMapMode] = useState(false);
+  const [searchCenter, setSearchCenter] = useState({ lat: 36.7525, lng: 3.04197 }); // Default Algiers
+  const [searchRadius, setSearchRadius] = useState(10); // 10 km default radius
 
   const selectedWilaya = searchParams.get("wilaya") || "";
   const selectedPriceUnit = searchParams.get("priceUnit") || "";
@@ -105,9 +127,16 @@ const Search = () => {
       if (apartment.price < priceRange[0] || apartment.price > priceRange[1]) {
         return false;
       }
+      
+      // Map Search Filter
+      if (isMapMode && apartment.lat && apartment.lng) {
+        const dist = calculateDistance(searchCenter.lat, searchCenter.lng, apartment.lat, apartment.lng);
+        if (dist > searchRadius) return false;
+      }
+
       return true;
     });
-  }, [apartments, selectedWilaya, selectedPriceUnit, selectedRooms, priceRange]);
+  }, [apartments, selectedWilaya, selectedPriceUnit, selectedRooms, priceRange, isMapMode, searchCenter, searchRadius]);
 
   const activeFiltersCount = [selectedWilaya, selectedPriceUnit, selectedRooms].filter(Boolean).length;
 
@@ -211,6 +240,25 @@ const Search = () => {
         </div>
       </div>
 
+      {/* Radius Filter - Only visible in Map Mode */}
+      {isMapMode && (
+        <div className="space-y-3">
+          <label className="text-sm font-medium">نطاق البحث (مسافة التقريب)</label>
+          <Slider
+            value={[searchRadius]}
+            onValueChange={(v) => setSearchRadius(v[0])}
+            max={50}
+            min={1}
+            step={1}
+            className="mt-6"
+          />
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>1 كم</span>
+            <span>{searchRadius} كم</span>
+          </div>
+        </div>
+      )}
+
       {/* Clear Filters */}
       {activeFiltersCount > 0 && (
         <Button variant="outline" className="w-full" onClick={clearFilters}>
@@ -301,18 +349,26 @@ const Search = () => {
 
                   <div className="hidden md:flex border rounded-lg">
                     <Button
-                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      variant={viewMode === "grid" && !isMapMode ? "secondary" : "ghost"}
                       size="icon"
-                      onClick={() => setViewMode("grid")}
+                      onClick={() => { setViewMode("grid"); setIsMapMode(false); }}
                     >
                       <Grid className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      variant={viewMode === "list" && !isMapMode ? "secondary" : "ghost"}
                       size="icon"
-                      onClick={() => setViewMode("list")}
+                      onClick={() => { setViewMode("list"); setIsMapMode(false); }}
                     >
                       <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={isMapMode ? "secondary" : "ghost"}
+                      size="icon"
+                      onClick={() => setIsMapMode(true)}
+                      className={isMapMode ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}
+                    >
+                      <MapIcon className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -342,20 +398,55 @@ const Search = () => {
                 </div>
               )}
 
+              {/* Map View Toggle */}
+              {isMapMode && (
+                <div className="mb-6 rounded-xl overflow-hidden border">
+                  <Suspense
+                    fallback={
+                      <div className="h-[500px] w-full rounded-xl bg-muted animate-pulse flex items-center justify-center border border-border">
+                        <span className="text-muted-foreground font-medium">جاري تحميل الخريطة...</span>
+                      </div>
+                    }
+                  >
+                    <NearbySearchMap
+                      apartments={filteredApartments}
+                      centerLat={searchCenter.lat}
+                      centerLng={searchCenter.lng}
+                      onSearchPinMove={(lat, lng) => setSearchCenter({ lat, lng })}
+                    />
+                  </Suspense>
+                </div>
+              )}
+
               {/* Results */}
               {filteredApartments.length > 0 ? (
                 <div className={viewMode === "grid" ? "grid gap-6 sm:grid-cols-2 xl:grid-cols-3" : "space-y-4"}>
                   {filteredApartments.map((apartment) => {
                 const apartmentId = apartment.firebase_id || apartment.id;
                 const isFavorited = favoriteIds.includes(apartmentId);
+                
+                // Calculate distance for badge
+                let distanceLabel;
+                if (isMapMode && apartment.lat && apartment.lng) {
+                  const dist = calculateDistance(searchCenter.lat, searchCenter.lng, apartment.lat, apartment.lng);
+                  distanceLabel = `يبعد ${dist.toFixed(1)} كم`;
+                }
 
                 return (
-                  <ApartmentCard
-                    key={apartment.id}
-                    apartment={apartment}
-                    isFavorite={isFavorited}
-                    onFavoriteClick={() => handleToggleFavorite(apartment)}
-                  />
+                  <div key={apartment.id} className="relative">
+                    <ApartmentCard
+                      apartment={apartment}
+                      isFavorite={isFavorited}
+                      onFavoriteClick={() => handleToggleFavorite(apartment)}
+                    />
+                    {distanceLabel && (
+                      <div className="absolute top-2 right-2 pointer-events-none z-10 w-full flex justify-end pr-10">
+                        <Badge variant="secondary" className="bg-white/90 text-primary shadow-sm backdrop-blur-md font-bold">
+                          {distanceLabel}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
                 </div>

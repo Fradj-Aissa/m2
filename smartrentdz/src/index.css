@@ -1,8 +1,10 @@
+/* ── Google Fonts: must be the very first statement in the file ── */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
 
 /* 
   اجرلي - منصة كراء الشقق المفروشة في الجزائر

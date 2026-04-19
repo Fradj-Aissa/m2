@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NotificationType {
+  rating
+  contact
+  approval
+  system
+
+  @@map("notification_type")
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  expired
+  rejected
+
+  @@map("subscription_status")
+}
+
+model User {
+  uid             String         @id
+  firebaseId      String         @unique @map("firebase_id")
+  googleId        String?        @unique @map("google_id")
+  email           String         @unique
+  password        String?
+  profilePic      String?        @map("profile_pic")
+  avatar          String?
+  accountType     String?        @map("account_type")
+  name            String
+  phone           String
+  type            String         
+  currentPlan     String         @default("Free") @map("current_plan")
+  subscriptionId  String?        @db.Uuid @map("subscription_id")
+  createdAt       DateTime?      @default(now()) @map("created_at")
+  updatedAt       DateTime?      @default(now()) @updatedAt @map("updated_at")
+
+  apartments      Apartment[]
+  favorites       Favorite[]
+  reviews         Review[]       @relation("RenterReviews")
+  notificationsR  Notification[] @relation("RecipientNotifications")
+  notificationsS  Notification[] @relation("SenderNotifications")
+  subscriptions   Subscription[]
+
+  @@map("users")
+}
+
+model Apartment {
+  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  firebaseId      String         @unique @map("firebase_id")
+  title           String
+  description     String
+  images          Json?          @default("[]")
+  price           Decimal        @db.Decimal(10, 2)
+  priceUnit       String         @map("price_unit")
+  wilaya          String
+  wilayaId        Int            @map("wilaya_id")
+  municipality    String
+  rooms           Int
+  bathrooms       Int
+  area            Decimal        @db.Decimal(10, 2)
+  amenities       Json?          @default("[]")
+  isFeatured      Boolean?       @default(false) @map("is_featured")
+  isActive        Boolean?       @default(true) @map("is_active")
+  views           Int?           @default(0)
+  phoneClicks     Int?           @default(0) @map("phone_clicks")
+  createdAt       DateTime?      @default(now()) @map("created_at")
+  updatedAt       DateTime?      @default(now()) @updatedAt @map("updated_at")
+  landlordId      String         @map("landlord_id")
+  landlordPhone   String         @map("landlord_phone")
+  landlordName    String         @map("landlord_name")
+  status          String         @default("approved")
+
+  landlord        User           @relation(fields: [landlordId], references: [uid], onDelete: Cascade)
+  favorites       Favorite[]
+  reviews         Review[]
+  notifications   Notification[]
+
+  @@index([landlordId], map: "idx_apartments_landlord_id")
+  @@index([wilayaId], map: "idx_apartments_wilaya_id")
+  @@index([isActive], map: "idx_apartments_is_active")
+  @@index([isFeatured], map: "idx_apartments_is_featured")
+  @@index([createdAt(sort: Desc)], map: "idx_apartments_created_at")
+  @@index([status], map: "idx_apartments_status")
+  @@map("apartments")
+}
+
+model Favorite {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  firebaseId      String?   @unique @map("firebase_id")
+  userId          String    @map("user_id")
+  apartmentId     String    @map("apartment_id")
+  createdAt       DateTime? @default(now()) @map("created_at")
+
+  user            User      @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  apartment       Apartment @relation(fields: [apartmentId], references: [firebaseId], onDelete: Cascade)
+
+  @@unique([userId, apartmentId])
+  @@index([userId], map: "idx_favorites_user_id")
+  @@index([apartmentId], map: "idx_favorites_apartment_id")
+  @@map("favorites")
+}
+
+model Review {
+  id              Int       @id @default(autoincrement())
+  apartmentId     String    @map("apartment_id")
+  renterId        String    @map("renter_id")
+  ownerId         String    @map("owner_id")
+  parentId        Int?      @map("parent_id")
+  rating          Int?
+  comment         String?
+  reportCount     Int?      @default(0) @map("report_count")
+  isFlagged       Boolean?  @default(false) @map("is_flagged")
+  createdAt       DateTime? @default(now()) @map("created_at")
+
+  apartment       Apartment @relation(fields: [apartmentId], references: [firebaseId], onDelete: Cascade)
+  renter          User      @relation("RenterReviews", fields: [renterId], references: [uid], onDelete: Cascade)
+  parent          Review?   @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Review[]  @relation("ReviewReplies")
+
+  @@index([parentId], map: "idx_reviews_parent_id")
+  @@map("reviews")
+}
+
+model Notification {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId     String           @map("recipient_id")
+  senderId        String?          @map("sender_id")
+  type            NotificationType
+  apartmentId     String?          @db.Uuid @map("apartment_id")
+  message         String
+  link            String?
+  isRead          Boolean          @default(false) @map("is_read")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  recipient       User             @relation("RecipientNotifications", fields: [recipientId], references: [uid], onDelete: Cascade)
+  sender          User?            @relation("SenderNotifications", fields: [senderId], references: [uid], onDelete: SetNull)
+  apartment       Apartment?       @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId], map: "idx_notifications_recipient_id")
+  @@index([isRead], map: "idx_notifications_is_read")
+  @@index([createdAt(sort: Desc)], map: "idx_notifications_created_at")
+  @@map("notifications")
+}
+
+model Subscription {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String             @map("user_id")
+  planName        String             @map("plan_name")
+  price           Decimal            @default(0) @db.Decimal(10, 2)
+  receiptImage    String?            @map("receipt_image")
+  status          SubscriptionStatus @default(pending)
+  startDate       DateTime?          @map("start_date")
+  endDate         DateTime?          @map("end_date")
+  createdAt       DateTime?          @default(now()) @map("created_at")
+
+  user            User               @relation(fields: [userId], references: [uid], onDelete: Cascade)
+
+  @@map("subscriptions")
+}

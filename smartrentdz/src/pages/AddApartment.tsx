@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Upload, X, MapPin, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { wilayas } from "@/data/wilayas";
+import { wilayaCoordinates } from "@/data/wilayaCoordinates";
 import { useAuth } from "@/contexts/AuthContext";
 import { createApartment } from "@/services/apartmentService";
 import { uploadImagesToImgBB } from "@/services/imageService";
@@ -24,6 +25,8 @@ import {
   predictApartmentPrice,
   PropertyType,
 } from "@/services/pricePredictionService";
+
+const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
 const amenitiesList = [
   "واي فاي",
@@ -61,6 +64,7 @@ const AddApartment = () => {
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [lastPredictedPrice, setLastPredictedPrice] = useState<number | null>(null);
   const [showPriceSuggestion, setShowPriceSuggestion] = useState(false);
+  const [flyToCoords, setFlyToCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -74,6 +78,8 @@ const AddApartment = () => {
     area: "",
     amenities: [] as string[],
     verification_docs: [] as string[],
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,6 +346,8 @@ const AddApartment = () => {
         landlord_id: currentUser.uid,
         landlord_phone: userData.phone,
         landlord_name: userData.name,
+        lat: formData.lat || undefined,
+        lng: formData.lng || undefined,
       });
 
       toast({
@@ -483,6 +491,12 @@ const AddApartment = () => {
                     onValueChange={(v) => {
                       resetPredictionFeedback();
                       setFormData({ ...formData, wilayaId: v });
+                      
+                      // Fly map to selected wilaya
+                      const coords = wilayaCoordinates[parseInt(v)];
+                      if (coords) {
+                        setFlyToCoords(coords);
+                      }
                     }}
                     required
                   >
@@ -508,6 +522,49 @@ const AddApartment = () => {
                     required
                   />
                 </div>
+              </div>
+
+              {/* Map Picker */}
+              <div className="mt-4">
+                <Label className="mb-2 block">حدد موقع الشقة بدقة على الخريطة (اختياري)</Label>
+                <Suspense
+                  fallback={
+                    <div className="h-[300px] w-full rounded-xl bg-muted animate-pulse flex items-center justify-center border border-border">
+                      <span className="text-muted-foreground text-sm font-medium">جاري تحميل الخريطة...</span>
+                    </div>
+                  }
+                >
+                  <LocationPicker
+                    lat={formData.lat}
+                    lng={formData.lng}
+                    flyToCoords={flyToCoords}
+                    onLocationSelect={(data) => {
+                      setFormData((prev) => {
+                        const newData = { ...prev, lat: data.lat, lng: data.lng };
+                        
+                        // Sync state -> Wilaya Dropdown
+                        if (data.state) {
+                          // Try to match returned state name to our wilayas
+                          const matchedWilaya = wilayas.find(
+                            (w) => w.name.includes(data.state!) || data.state!.includes(w.name)
+                          );
+                          if (matchedWilaya) {
+                            newData.wilayaId = matchedWilaya.id.toString();
+                          }
+                        }
+                        
+                        // Sync city/suburb -> Municipality Input
+                        if (data.city || data.suburb) {
+                          newData.municipality = [data.suburb, data.city]
+                            .filter(Boolean)
+                            .join("، ");
+                        }
+
+                        return newData;
+                      });
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
 

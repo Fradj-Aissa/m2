@@ -1,4 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+
+// Lazy-load Leaflet map — deferred so it only runs in the browser (avoids
+// "window is not defined" errors and keeps the initial bundle lighter)
+const PropertyMap = lazy(() => import("@/components/PropertyMap"));
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -339,6 +343,36 @@ const ApartmentDetail = () => {
                   ))}
                 </div>
               </div>
+
+              {/* ── Map Section ──────────────────────────────────── */}
+              {apartment.lat != null && apartment.lng != null && (
+                <>
+                  <Separator />
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-primary" />
+                      الموقع على الخريطة
+                    </h2>
+                    {/* Suspense skeleton shown while Leaflet JS bundle loads */}
+                    <Suspense
+                      fallback={
+                        <div className="h-[400px] w-full rounded-2xl bg-muted animate-pulse flex items-center justify-center border border-border">
+                          <span className="text-muted-foreground text-sm font-medium">
+                            جاري تحميل الخريطة…
+                          </span>
+                        </div>
+                      }
+                    >
+                      <PropertyMap
+                        lat={apartment.lat}
+                        lng={apartment.lng}
+                        price={apartment.price}
+                        propertyId={apartment.id}
+                      />
+                    </Suspense>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Sidebar */}

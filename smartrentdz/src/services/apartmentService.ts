@@ -34,6 +34,8 @@ export interface Apartment {
   verification_docs?: string[];
   verification_status?: 'pending' | 'verified' | 'rejected';
   verification_feedback?: string;
+  lat?: number;
+  lng?: number;
 }
 
 /**
@@ -68,6 +70,8 @@ function mapApartmentToFrontend(data: any): Apartment {
     verification_docs: Array.isArray(data.verification_docs) ? data.verification_docs : (data.verification_docs ? JSON.parse(data.verification_docs) : []),
     verification_status: data.verification_status,
     verification_feedback: data.verification_feedback,
+    lat: data.lat != null ? parseFloat(data.lat) : undefined,
+    lng: data.lng != null ? parseFloat(data.lng) : undefined,
   };
 }
 
@@ -93,6 +97,8 @@ function mapApartmentToDB(data: Partial<Apartment>): Record<string, any> {
   if (data.landlord_phone) mapped.landlord_phone = data.landlord_phone;
   if (data.landlord_name) mapped.landlord_name = data.landlord_name;
   if (data.status) mapped.status = data.status;
+  if (data.lat !== undefined) mapped.lat = data.lat;
+  if (data.lng !== undefined) mapped.lng = data.lng;
 
   return mapped;
 }
@@ -139,6 +145,8 @@ export const createApartment = async (
     landlordId: apartmentData.landlord_id,
     landlordPhone: apartmentData.landlord_phone,
     landlordName: apartmentData.landlord_name,
+    lat: apartmentData.lat,
+    lng: apartmentData.lng,
   };
 
   const response = await apiPost<Apartment>('/apartments', payload);

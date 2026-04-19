@@ -314,6 +314,8 @@ router.post("/", authMiddleware, async (req, res) => {
       landlordId,
       landlordPhone,
       landlordName,
+      lat,
+      lng,
     } = req.body;
 
     const userId = req.user?.uid;
@@ -369,8 +371,8 @@ router.post("/", authMiddleware, async (req, res) => {
       `INSERT INTO apartments (
         title, description, images, price, price_unit, wilaya, wilaya_id,
         municipality, rooms, bathrooms, area, amenities, verification_docs, is_featured, is_active,
-        landlord_id, landlord_phone, landlord_name, firebase_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        landlord_id, landlord_phone, landlord_name, firebase_id, lat, lng
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       RETURNING *`,
       [
         title,
@@ -392,6 +394,8 @@ router.post("/", authMiddleware, async (req, res) => {
         landlordPhone,
         landlordName,
         `temp_${Date.now()}`, // Temporary firebase_id, will be updated after Firestore migration
+        lat ? parseFloat(lat) : null,
+        lng ? parseFloat(lng) : null,
       ]
     );
 
@@ -428,7 +432,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
     const isVerified = currentApt.verification_status === 'verified';
 
     // Sensitive fields that trigger verification invalidation
-    const sensitiveFields = ["title", "address", "wilaya", "wilaya_id", "latitude", "longitude"];
+    const sensitiveFields = ["title", "address", "wilaya", "wilaya_id", "lat", "lng", "latitude", "longitude"];
     const updatingsSensitiveField = sensitiveFields.some(field => updates.hasOwnProperty(field));
 
     // Build dynamic update query
@@ -453,6 +457,8 @@ router.put("/:id", authMiddleware, async (req, res) => {
       "verification_docs",
       "verification_status",
       "verification_feedback",
+      "lat",
+      "lng",
     ];
 
     const updateFields = [];

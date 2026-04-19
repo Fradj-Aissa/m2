@@ -1,5 +1,5 @@
 const FASTAPI_PREDICT_URL =
-  process.env.FASTAPI_PREDICT_URL || 'http://127.0.0.1:8000/predict';
+  process.env.FASTAPI_PREDICT_URL || 'http://127.0.0.1:8000/api/predict-price';
 
 const DEFAULT_PREDICTION_INPUTS = {
   accommodates: 2,
@@ -131,47 +131,27 @@ function mapPredictionRequest(input = {}) {
     input.requested_price ?? input.requestedPrice ?? input.price,
     'requested_price'
   );
-  const accommodates = coercePositiveNumber(
-    input.accommodates ?? DEFAULT_PREDICTION_INPUTS.accommodates,
-    'accommodates'
-  );
   const bedrooms = coercePositiveNumber(input.bedrooms ?? input.rooms, 'bedrooms');
   const bathrooms = coercePositiveNumber(input.bathrooms, 'bathrooms');
   const propertyType = normalizePropertyType(input.property_type ?? input.propertyType);
   const wilaya = resolveWilayaName(input);
 
-  const minimumNights = coercePositiveNumber(
-    input.minimum_nights ?? input.minimumNights ?? DEFAULT_PREDICTION_INPUTS.minimum_nights,
-    'minimum_nights'
-  );
-
+  // Map form data to FastAPI PropertyPredictionRequest format
+  // Use reasonable defaults for fields not provided by the form
   return {
     mappedPayload: {
-      accommodates,
-      bedrooms,
-      bathrooms,
-      wilaya,
-      property_type: propertyType,
-      minimum_nights: minimumNights,
-      number_of_reviews: coerceNonNegativeNumber(
-        input.number_of_reviews ??
-          input.numberOfReviews ??
-          DEFAULT_PREDICTION_INPUTS.number_of_reviews,
-        DEFAULT_PREDICTION_INPUTS.number_of_reviews
-      ),
-      availability_365: coerceNonNegativeNumber(
-        input.availability_365 ??
-          input.availability365 ??
-          DEFAULT_PREDICTION_INPUTS.availability_365,
-        DEFAULT_PREDICTION_INPUTS.availability_365
-      ),
-      review_scores_rating: coerceNonNegativeNumber(
-        input.review_scores_rating ??
-          input.reviewScoresRating ??
-          DEFAULT_PREDICTION_INPUTS.review_scores_rating,
-        DEFAULT_PREDICTION_INPUTS.review_scores_rating
-      ),
-      price_per_person: requestedPrice / accommodates,
+      title: input.title || `${propertyType} في ${wilaya}`,
+      description: input.description || `عقار من نوع ${propertyType}`,
+      beds: Math.max(1, Math.floor(bedrooms / 2)) || 1,
+      bedrooms: bedrooms,
+      bathrooms: bathrooms,
+      guests: bedrooms * 2 || 2,
+      rating: input.rating || 4.0,
+      reviewCount: input.reviewCount || 0,
+      wilaya: wilaya,
+      neighborhood: input.neighborhood || "N/A",
+      lat: input.lat || 36.737,
+      lng: input.lng || 3.086,
     },
     requestedPrice,
   };

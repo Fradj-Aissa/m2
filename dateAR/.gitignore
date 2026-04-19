@@ -1,0 +1,13 @@
+# تجاهل مجلد الصور داخل بيانات السحب
+scraped_data/images/
+
+# تجاهل ملفات النظام والمكتبات
+node_modules/
+.env
+.env.local
+.DS_Store
+
+# ملفات السجلات (Logs)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
