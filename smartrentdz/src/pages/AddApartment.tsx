@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Upload, X, MapPin, DollarSign } from "lucide-react";
+import { ArrowRight, Upload, X, MapPin, DollarSign, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -25,6 +26,10 @@ import {
   predictApartmentPrice,
   PropertyType,
 } from "@/services/pricePredictionService";
+import {
+  generateSmartDescription,
+  type GenerateDescriptionParams,
+} from "@/services/aiDescriptionService";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
@@ -57,6 +62,10 @@ const AddApartment = () => {
   const { currentUser, userData } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPredictingPrice, setIsPredictingPrice] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [descriptionStyle, setDescriptionStyle] = useState<"Popular" | "Luxury">(
+    "Popular"
+  );
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [verificationDocFiles, setVerificationDocFiles] = useState<File[]>([]);
@@ -213,6 +222,93 @@ const AddApartment = () => {
       });
     } finally {
       setIsPredictingPrice(false);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    // Validate required fields
+    const rooms = Number(formData.rooms);
+    const price = Number(formData.price);
+    const wilayaId = Number(formData.wilayaId);
+
+    if (!formData.wilayaId) {
+      toast({
+        title: "خطأ",
+        description: "اختر الولاية أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.municipality.trim()) {
+      toast({
+        title: "خطأ",
+        description: "أدخل البلدية أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(rooms) || rooms <= 0) {
+      toast({
+        title: "خطأ",
+        description: "أدخل عدد الغرف أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      toast({
+        title: "خطأ",
+        description: "أدخل السعر أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+
+    try {
+      const wilaya = wilayas.find((w) => w.id.toString() === formData.wilayaId);
+      if (!wilaya) {
+        throw new Error("لم يتم العثور على الولاية");
+      }
+
+      const params: GenerateDescriptionParams = {
+        wilaya: wilaya.name,
+        baladiya: formData.municipality,
+        rooms,
+        floor: formData.floor ? Number(formData.floor) : undefined,
+        price,
+        features: formData.amenities,
+        style: descriptionStyle,
+      };
+
+      const result = await generateSmartDescription(params);
+
+      // Auto-fill the title and description fields
+      setFormData((prev) => ({
+        ...prev,
+        title: result.title,
+        description: result.description,
+      }));
+
+      toast({
+        title: "تم إنشاء الوصف بنجاح",
+        description: "تم ملء العنوان والوصف تلقائياً",
+      });
+    } catch (error: any) {
+      console.error("Error generating description:", error);
+      toast({
+        title: "خطأ",
+        description:
+          error?.message ||
+          "تعذر إنشاء الوصف. يرجى المحاولة مرة أخرى",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingDescription(false);
     }
   };
 
@@ -473,6 +569,43 @@ const AddApartment = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* AI Description Section */}
+              <div className="border-t pt-4 mt-4 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-base">أسلوب الوصف</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {descriptionStyle === "Popular"
+                        ? "أسلوب دافئ وودود (شعبي)"
+                        : "أسلوب راقي وفاخر"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {descriptionStyle === "Popular" ? "شعبي" : "فاخر"}
+                    </span>
+                    <Switch
+                      checked={descriptionStyle === "Luxury"}
+                      onCheckedChange={(checked) =>
+                        setDescriptionStyle(checked ? "Luxury" : "Popular")
+                      }
+                      disabled={isGeneratingDescription}
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGenerateDescription}
+                  disabled={isGeneratingDescription || isLoading}
+                >
+                  <Sparkles className="h-4 w-4 ml-2" />
+                  {isGeneratingDescription ? "جاري الإنشاء..." : "إنشاء وصف بالذكاء الاصطناعي"}
+                </Button>
               </div>
             </div>
 
