@@ -83,7 +83,8 @@ const AddApartment = () => {
     price: "",
     priceUnit: "day",
     rooms: "",
-    bathrooms: "",
+    bathrooms: "1",
+    floor: "",
     area: "",
     amenities: [] as string[],
     verification_docs: [] as string[],
@@ -485,9 +486,9 @@ const AddApartment = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Images Section */}
-            <div className="bg-card rounded-xl border p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="font-semibold mb-4">صور الشقة</h2>
               <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {imagePreviews.map((img, idx) => (
@@ -521,98 +522,10 @@ const AddApartment = () => {
               </p>
             </div>
 
-            {/* Basic Info */}
-            <div className="bg-card rounded-xl border p-6 space-y-4">
-              <h2 className="font-semibold mb-4">المعلومات الأساسية</h2>
-              
-              <div className="space-y-2">
-                <Label htmlFor="title">عنوان الإعلان</Label>
-                <Input
-                  id="title"
-                  placeholder="مثال: شقة فاخرة بإطلالة بحرية"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">الوصف</Label>
-                <Textarea
-                  id="description"
-                  placeholder="صف شقتك بالتفصيل..."
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>نوع العقار</Label>
-                <Select
-                  value={formData.propertyType}
-                  onValueChange={(v) => {
-                    const propertyType = v as PropertyType;
-                    resetPredictionFeedback();
-                    setFormData({ ...formData, propertyType });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر نوع العقار" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {propertyTypeOptions.map((propertyType) => (
-                      <SelectItem key={propertyType} value={propertyType}>
-                        {propertyType}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* AI Description Section */}
-              <div className="border-t pt-4 mt-4 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-base">أسلوب الوصف</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {descriptionStyle === "Popular"
-                        ? "أسلوب دافئ وودود (شعبي)"
-                        : "أسلوب راقي وفاخر"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {descriptionStyle === "Popular" ? "شعبي" : "فاخر"}
-                    </span>
-                    <Switch
-                      checked={descriptionStyle === "Luxury"}
-                      onCheckedChange={(checked) =>
-                        setDescriptionStyle(checked ? "Luxury" : "Popular")
-                      }
-                      disabled={isGeneratingDescription}
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGenerateDescription}
-                  disabled={isGeneratingDescription || isLoading}
-                >
-                  <Sparkles className="h-4 w-4 ml-2" />
-                  {isGeneratingDescription ? "جاري الإنشاء..." : "إنشاء وصف بالذكاء الاصطناعي"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Location */}
-            <div className="bg-card rounded-xl border p-6 space-y-4">
-              <h2 className="font-semibold mb-4 flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
+            {/* SECTION 1: Property Location */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-600" />
                 الموقع
               </h2>
 
@@ -624,7 +537,7 @@ const AddApartment = () => {
                     onValueChange={(v) => {
                       resetPredictionFeedback();
                       setFormData({ ...formData, wilayaId: v });
-                      
+
                       // Fly map to selected wilaya
                       const coords = wilayaCoordinates[parseInt(v)];
                       if (coords) {
@@ -658,8 +571,8 @@ const AddApartment = () => {
               </div>
 
               {/* Map Picker */}
-              <div className="mt-4">
-                <Label className="mb-2 block">حدد موقع الشقة بدقة على الخريطة (اختياري)</Label>
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <Label className="mb-3 block font-medium">حدد موقع الشقة بدقة على الخريطة (اختياري)</Label>
                 <Suspense
                   fallback={
                     <div className="h-[300px] w-full rounded-xl bg-muted animate-pulse flex items-center justify-center border border-border">
@@ -674,7 +587,7 @@ const AddApartment = () => {
                     onLocationSelect={(data) => {
                       setFormData((prev) => {
                         const newData = { ...prev, lat: data.lat, lng: data.lng };
-                        
+
                         // Sync state -> Wilaya Dropdown
                         if (data.state) {
                           // Try to match returned state name to our wilayas
@@ -685,7 +598,7 @@ const AddApartment = () => {
                             newData.wilayaId = matchedWilaya.id.toString();
                           }
                         }
-                        
+
                         // Sync city/suburb -> Municipality Input
                         if (data.city || data.suburb) {
                           newData.municipality = [data.suburb, data.city]
@@ -701,73 +614,9 @@ const AddApartment = () => {
               </div>
             </div>
 
-            {/* Pricing */}
-            <div className="bg-card rounded-xl border p-6 space-y-4">
-              <h2 className="font-semibold mb-4 flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                السعر
-              </h2>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="price">السعر (د.ج)</Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      id="price"
-                      type="number"
-                      placeholder="5000"
-                      value={formData.price}
-                      onChange={(e) => handlePriceChange(e.target.value)}
-                      required
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handlePredictPrice}
-                      disabled={isPredictingPrice || isLoading}
-                    >
-                      {isPredictingPrice ? "جاري التقدير..." : "AI Predict Price"}
-                    </Button>
-                  </div>
-                  {aiConfidence !== null && (
-                    <p className="text-xs text-muted-foreground">
-                      ثقة الذكاء الاصطناعي: {(aiConfidence * 100).toFixed(0)}%
-                    </p>
-                  )}
-                  {lastPredictedPrice !== null && (
-                    <p className="text-xs text-muted-foreground">
-                      السعر المقترح: {Math.round(lastPredictedPrice).toLocaleString("en-US")} د.ج
-                    </p>
-                  )}
-                  {showPriceSuggestion && (
-                    <p className="text-xs text-amber-700">
-                      يجب عليك خفض السعر لمطابقة طلب السوق.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>مدة الكراء</Label>
-                  <Select
-                    value={formData.priceUnit}
-                    onValueChange={(v) => setFormData({ ...formData, priceUnit: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">يومي</SelectItem>
-                      <SelectItem value="week">أسبوعي</SelectItem>
-                      <SelectItem value="month">شهري</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="bg-card rounded-xl border p-6 space-y-4">
-              <h2 className="font-semibold mb-4">تفاصيل الشقة</h2>
+            {/* SECTION 2: Specifications */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold mb-6">مواصفات الشقة</h2>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
@@ -792,6 +641,18 @@ const AddApartment = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="floor">الطابق</Label>
+                  <Input
+                    id="floor"
+                    type="number"
+                    placeholder="مثال: 2"
+                    value={formData.floor}
+                    onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="bathrooms">عدد الحمامات</Label>
                   <Select
@@ -814,6 +675,9 @@ const AddApartment = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="space-y-2">
                   <Label htmlFor="area">المساحة (م²)</Label>
                   <Input
@@ -828,9 +692,197 @@ const AddApartment = () => {
               </div>
             </div>
 
+            {/* SECTION 3: Pricing & AI Prediction */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                التسعير والتنبؤ
+              </h2>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label htmlFor="price">السعر (د.ج)</Label>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      id="price"
+                      type="number"
+                      placeholder="5000"
+                      value={formData.price}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      required
+                    />
+                    {aiConfidence !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        ثقة الذكاء الاصطناعي: {(aiConfidence * 100).toFixed(0)}%
+                      </p>
+                    )}
+                    {lastPredictedPrice !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        السعر المقترح: {Math.round(lastPredictedPrice).toLocaleString("en-US")} د.ج
+                      </p>
+                    )}
+                    {showPriceSuggestion && (
+                      <p className="text-xs text-amber-700 font-medium">
+                        يجب عليك خفض السعر لمطابقة طلب السوق.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>مدة الكراء</Label>
+                  <Select
+                    value={formData.priceUnit}
+                    onValueChange={(v) => setFormData({ ...formData, priceUnit: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">يومي</SelectItem>
+                      <SelectItem value="week">أسبوعي</SelectItem>
+                      <SelectItem value="month">شهري</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full bg-gradient-to-r from-green-50 to-blue-50 border-green-200 hover:bg-green-50"
+                  onClick={handlePredictPrice}
+                  disabled={isPredictingPrice || isLoading}
+                >
+                  <Sparkles className="h-4 w-4 ml-2" />
+                  {isPredictingPrice ? "جاري التقدير..." : "تنبؤ بأفضل سعر"}
+                </Button>
+              </div>
+            </div>
+
+            {/* SECTION 4: AI Marketing */}
+            <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+              <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                التسويق بالذكاء الاصطناعي
+              </h2>
+
+              {/* Style Selector */}
+              <div className="mb-6 pb-6 border-b border-purple-100">
+                <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-lg border border-purple-100">
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-base font-medium">أسلوب الوصف</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {descriptionStyle === "Popular"
+                        ? "أسلوب دافئ وودود (شعبي)"
+                        : "أسلوب راقي وفاخر"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 whitespace-nowrap">
+                    <span className="text-sm font-medium">
+                      {descriptionStyle === "Popular" ? "شعبي" : "فاخر"}
+                    </span>
+                    <Switch
+                      checked={descriptionStyle === "Luxury"}
+                      onCheckedChange={(checked) =>
+                        setDescriptionStyle(checked ? "Luxury" : "Popular")
+                      }
+                      disabled={isGeneratingDescription}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Generate Description Button */}
+              <div className="mb-6">
+                <Button
+                  type="button"
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium"
+                  onClick={handleGenerateDescription}
+                  disabled={isGeneratingDescription || isLoading}
+                >
+                  <Sparkles className="h-4 w-4 ml-2" />
+                  {isGeneratingDescription ? "جاري الإنشاء..." : "إنشاء العنوان والوصف بالذكاء الاصطناعي"}
+                </Button>
+              </div>
+
+              {/* Title Field */}
+              <div className="space-y-2 mb-4">
+                <Label htmlFor="title" className="font-medium">عنوان الإعلان</Label>
+                <Input
+                  id="title"
+                  placeholder="مثال: شقة فاخرة بإطلالة بحرية"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                  className="bg-white border-purple-100"
+                />
+              </div>
+
+              {/* Description Field */}
+              <div className="space-y-2">
+                <Label htmlFor="description" className="font-medium">الوصف</Label>
+                <Textarea
+                  id="description"
+                  placeholder="صف شقتك بالتفصيل..."
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  required
+                  className="bg-white border-purple-100"
+                />
+              </div>
+
+              {/* Property Type - moved to AI section */}
+              <div className="mt-6 pt-6 border-t border-purple-100">
+                <div className="space-y-2">
+                  <Label className="font-medium">نوع العقار</Label>
+                  <Select
+                    value={formData.propertyType}
+                    onValueChange={(v) => {
+                      const propertyType = v as PropertyType;
+                      resetPredictionFeedback();
+                      setFormData({ ...formData, propertyType });
+                    }}
+                  >
+                    <SelectTrigger className="bg-white border-purple-100">
+                      <SelectValue placeholder="اختر نوع العقار" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {propertyTypeOptions.map((propertyType) => (
+                        <SelectItem key={propertyType} value={propertyType}>
+                          {propertyType}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Amenities Section */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold mb-4">المرافق والخدمات</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {amenitiesList.map((amenity) => (
+                  <label
+                    key={amenity}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <Checkbox
+                      checked={formData.amenities.includes(amenity)}
+                      onCheckedChange={() => toggleAmenity(amenity)}
+                    />
+                    <span className="text-sm">{amenity}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Verification Documents */}
-            <div className="bg-card rounded-xl border p-6">
-              <h2 className="font-semibold mb-2">وثائق إثبات الملكية (اختياري)</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold mb-2">وثائق إثبات الملكية (اختياري)</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 هذه الوثائق تطلع عليها الإدارة فقط لتوثيق الشقة وزيادة مصداقية إعلانك.
               </p>
@@ -866,31 +918,12 @@ const AddApartment = () => {
               </p>
             </div>
 
-            {/* Amenities */}
-            <div className="bg-card rounded-xl border p-6">
-              <h2 className="font-semibold mb-4">المرافق والخدمات</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {amenitiesList.map((amenity) => (
-                  <label
-                    key={amenity}
-                    className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      checked={formData.amenities.includes(amenity)}
-                      onCheckedChange={() => toggleAmenity(amenity)}
-                    />
-                    <span className="text-sm">{amenity}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <div className="flex gap-4">
+            {/* Submit Section */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 type="submit"
                 size="lg"
-                className="flex-1 bg-gradient-hero hover:opacity-90"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium text-base py-6"
                 disabled={isLoading}
               >
                 {isLoading ? "جاري النشر..." : "نشر الشقة"}
@@ -899,6 +932,7 @@ const AddApartment = () => {
                 type="button"
                 variant="outline"
                 size="lg"
+                className="sm:flex-shrink-0 font-medium"
                 onClick={() => navigate(-1)}
               >
                 إلغاء
