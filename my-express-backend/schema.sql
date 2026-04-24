@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS apartments (
   images JSONB DEFAULT '[]',
   price NUMERIC(10, 2) NOT NULL,
   price_unit VARCHAR(50) NOT NULL CHECK (price_unit IN ('day', 'week', 'month')),
+  property_type VARCHAR(20) CHECK (property_type IN ('Apartment', 'House', 'Studio')),
   wilaya VARCHAR(255) NOT NULL,
   wilaya_id INTEGER NOT NULL,
   municipality VARCHAR(255) NOT NULL,

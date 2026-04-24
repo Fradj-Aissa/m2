@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS apartments (
   images JSONB DEFAULT '[]',
   price NUMERIC(10, 2) NOT NULL,
   price_unit VARCHAR(50) NOT NULL CHECK (price_unit IN ('day', 'week', 'month')),
+  property_type VARCHAR(20) CHECK (property_type IN ('Apartment', 'House', 'Studio')),
   wilaya VARCHAR(255) NOT NULL,
   wilaya_id INTEGER NOT NULL,
   municipality VARCHAR(255) NOT NULL,
@@ -155,6 +156,9 @@ ADD COLUMN IF NOT EXISTS current_plan VARCHAR(20) NOT NULL DEFAULT 'Free';
 
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS subscription_id UUID REFERENCES subscriptions(id);
+
+ALTER TABLE apartments
+ADD COLUMN IF NOT EXISTS property_type VARCHAR(20);
 
 CREATE INDEX IF NOT EXISTS idx_apartments_landlord_id ON apartments(landlord_id);
 CREATE INDEX IF NOT EXISTS idx_apartments_wilaya_id ON apartments(wilaya_id);

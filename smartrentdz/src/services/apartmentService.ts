@@ -14,6 +14,7 @@ export interface Apartment {
   images: string[];
   price: number;
   price_unit: 'day' | 'week' | 'month';
+  property_type?: 'Apartment' | 'House' | 'Studio' | null;
   wilaya: string;
   wilaya_id: number;
   municipality: string;
@@ -50,6 +51,7 @@ function mapApartmentToFrontend(data: any): Apartment {
     images: Array.isArray(data.images) ? data.images : JSON.parse(data.images || '[]'),
     price: parseFloat(data.price),
     price_unit: data.price_unit,
+    property_type: data.property_type ?? null,
     wilaya: data.wilaya,
     wilaya_id: data.wilaya_id,
     municipality: data.municipality,
@@ -86,6 +88,7 @@ function mapApartmentToDB(data: Partial<Apartment>): Record<string, any> {
   if (data.images) mapped.images = data.images;
   if (data.price !== undefined) mapped.price = data.price;
   if (data.price_unit) mapped.price_unit = data.price_unit;
+  if (data.property_type !== undefined) mapped.property_type = data.property_type;
   if (data.wilaya) mapped.wilaya = data.wilaya;
   if (data.wilaya_id) mapped.wilaya_id = data.wilaya_id;
   if (data.municipality) mapped.municipality = data.municipality;
@@ -132,6 +135,7 @@ export const createApartment = async (
     images: apartmentData.images,
     price: apartmentData.price,
     priceUnit: apartmentData.price_unit,
+    propertyType: apartmentData.property_type,
     wilaya: apartmentData.wilaya,
     wilayaId: apartmentData.wilaya_id,
     municipality: apartmentData.municipality,
@@ -252,6 +256,7 @@ export const deleteApartment = async (id: string): Promise<void> => {
 export const searchApartments = async (filters: {
   wilaya_id?: number;
   price_unit?: string;
+  property_type?: string;
   rooms?: number;
   min_price?: number;
   max_price?: number;
@@ -261,6 +266,7 @@ export const searchApartments = async (filters: {
   const params = new URLSearchParams();
   if (filters.wilaya_id) params.append('wilayaId', filters.wilaya_id.toString());
   if (filters.price_unit) params.append('priceUnit', filters.price_unit);
+  if (filters.property_type) params.append('propertyType', filters.property_type);
   if (filters.rooms) params.append('rooms', filters.rooms.toString());
   if (filters.min_price) params.append('minPrice', filters.min_price.toString());
   if (filters.max_price) params.append('maxPrice', filters.max_price.toString());

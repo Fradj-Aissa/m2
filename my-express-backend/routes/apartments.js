@@ -89,7 +89,17 @@ router.post("/upload-images", authMiddleware, upload.array("images"), async (req
 // GET /api/apartments?wilayaId=&rooms=&minPrice=&maxPrice=&priceUnit=
 router.get("/", async (req, res) => {
   try {
-    const { wilayaId, rooms, minPrice, maxPrice, priceUnit, isFeatured, limit = 50, offset = 0 } = req.query;
+    const {
+      wilayaId,
+      rooms,
+      minPrice,
+      maxPrice,
+      priceUnit,
+      propertyType,
+      isFeatured,
+      limit = 50,
+      offset = 0,
+    } = req.query;
 
     let query = `
       SELECT a.*, u.current_plan, s.start_date AS subscription_start_date
@@ -111,6 +121,12 @@ router.get("/", async (req, res) => {
     if (priceUnit) {
       query += ` AND price_unit = $${paramCount}`;
       params.push(priceUnit);
+      paramCount++;
+    }
+
+    if (propertyType) {
+      query += ` AND property_type = $${paramCount}`;
+      params.push(propertyType);
       paramCount++;
     }
 
@@ -163,6 +179,11 @@ router.get("/", async (req, res) => {
     if (priceUnit) {
       countQuery += ` AND a.price_unit = $${countParamCount}`;
       countParams.push(priceUnit);
+      countParamCount++;
+    }
+    if (propertyType) {
+      countQuery += ` AND a.property_type = $${countParamCount}`;
+      countParams.push(propertyType);
       countParamCount++;
     }
     if (rooms) {
@@ -301,6 +322,7 @@ router.post("/", authMiddleware, async (req, res) => {
       images = [],
       price,
       priceUnit = "month",
+      propertyType = null,
       wilaya,
       wilayaId,
       municipality,
@@ -369,10 +391,10 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const result = await db.query(
       `INSERT INTO apartments (
-        title, description, images, price, price_unit, wilaya, wilaya_id,
+        title, description, images, price, price_unit, property_type, wilaya, wilaya_id,
         municipality, rooms, bathrooms, area, amenities, verification_docs, is_featured, is_active,
         landlord_id, landlord_phone, landlord_name, firebase_id, lat, lng
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *`,
       [
         title,
@@ -380,6 +402,7 @@ router.post("/", authMiddleware, async (req, res) => {
         JSON.stringify(normalizedImages),
         parseFloat(price),
         priceUnit,
+        propertyType,
         wilaya,
         wilayaId,
         municipality,
@@ -442,6 +465,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
       "images",
       "price",
       "price_unit",
+      "property_type",
       "wilaya",
       "wilaya_id",
       "municipality",
