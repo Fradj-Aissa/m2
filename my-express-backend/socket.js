@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { getAllowedOrigins } = require('./config/runtime');
 
 const userSockets = new Map();
 let io = null;
@@ -11,7 +12,7 @@ function initializeSocketServer(httpServer) {
 
   io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: getAllowedOrigins(),
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     },

@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const { loadEnvironment } = require('./config/runtime');
+
+loadEnvironment();
 
 // Use DATABASE_URL if set, otherwise use individual DB env vars
 const poolConfig = process.env.DATABASE_URL

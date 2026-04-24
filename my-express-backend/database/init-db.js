@@ -7,7 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const { loadEnvironment } = require('../config/runtime');
+
+loadEnvironment();
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 

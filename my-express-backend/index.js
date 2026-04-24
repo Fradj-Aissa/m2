@@ -1,10 +1,13 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const cors = require('cors');
 const db = require('./db');
 const { initializeSocketServer } = require('./socket');
 const { runMigrations } = require('./database/init-db');
-require('dotenv').config();
+const { getAllowedOrigins, loadEnvironment } = require('./config/runtime');
+
+loadEnvironment();
 
 const authRouter = require('./routes/auth');
 const apartmentsRouter = require('./routes/apartments');
@@ -18,20 +21,28 @@ const predictionsRouter = require('./routes/predictions');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = getAllowedOrigins();
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
 
+    callback(new Error(`CORS origin not allowed: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Cross-Origin-Opener-Policy', 'same-origin');
   res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
 
   next();
 });
@@ -74,8 +85,8 @@ async function startServer() {
     await runMigrations();
     initializeSocketServer(server);
 
-    server.listen(PORT, () => {
-      console.log(`Server is running : http://localhost:${PORT}`);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server is running on 0.0.0.0:${PORT}`);
     });
   } catch (error) {
     console.error('Unable to start server:', error);
