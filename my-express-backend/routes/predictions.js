@@ -11,11 +11,11 @@ const router = express.Router();
 /**
  * POST /api/predict-price
  *
- * Smart mapping layer between the React form and the FastAPI model:
- * - rooms      -> bedrooms
+ * Smart mapping layer between the React form and the hosted ML API:
  * - wilayaId   -> wilaya
- * - add defaults for model-only fields
- * - calculate price_per_person from the requested price
+ * - propertyType UI values -> ML-compatible property_type
+ * - priceUnit  -> minimum_nights
+ * - requested price -> price_per_person
  */
 router.post('/predict-price', async (req, res) => {
   try {

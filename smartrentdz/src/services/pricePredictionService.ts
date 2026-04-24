@@ -1,6 +1,7 @@
 import { apiPost } from "@/lib/api";
 
-export type PropertyType = "Apartment" | "Villa" | "House" | "Loft" | "Condo";
+export type PropertyType = "Apartment" | "Villa" | "House" | "Loft" | "Condo" | "Studio";
+export type PriceUnit = "day" | "week" | "month";
 
 export interface PricePredictionInput {
   requested_price: number;
@@ -8,6 +9,7 @@ export interface PricePredictionInput {
   bathrooms: number;
   wilayaId: number;
   property_type: PropertyType;
+  price_unit: PriceUnit;
 }
 
 export interface PricePredictionResult {

@@ -195,6 +195,7 @@ const AddApartment = () => {
         bathrooms,
         wilayaId,
         property_type: formData.propertyType,
+        price_unit: formData.priceUnit as "day" | "week" | "month",
       });
 
       const roundedPrediction = Math.round(prediction.predicted_price);
