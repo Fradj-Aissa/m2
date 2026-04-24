@@ -26,11 +26,14 @@ function getAllowedOrigins() {
     'http://127.0.0.1:8080',
   ];
 
-  const configuredFrontend = process.env.FRONTEND_URL
-    ? [process.env.FRONTEND_URL.trim()]
-    : [];
+  // Production origins (Render, Vercel, etc.)
+  const productionOrigins = [
+    'https://m2-3.onrender.com',           // Render backend
+    process.env.FRONTEND_URL,               // From environment
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null, // Vercel auto
+  ].filter(Boolean);
 
-  return [...new Set([...localhostOrigins, ...configuredFrontend])];
+  return [...new Set([...localhostOrigins, ...productionOrigins])];
 }
 
 module.exports = {

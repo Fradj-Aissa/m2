@@ -1,7 +1,6 @@
 /**
  * API Configuration for Backend Endpoints
  * Uses Axios with JWT token interceptor
- * Replaces Firebase/Firestore with Express.js PostgreSQL API
  */
 
 import axios, { AxiosInstance } from 'axios';
@@ -13,6 +12,7 @@ export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3
  */
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true, // Enable sending cookies with requests
   headers: {
     'Content-Type': 'application/json',
   },

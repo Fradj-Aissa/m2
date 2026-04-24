@@ -40,6 +40,7 @@ export const uploadImagesToImgBB = async (files: File[]): Promise<string[]> => {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
+        withCredentials: true, // Enable credentials for cross-origin requests
       }
     );
 
