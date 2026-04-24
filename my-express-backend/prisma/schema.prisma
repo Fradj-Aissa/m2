@@ -53,7 +53,7 @@ model User {
 }
 
 model Apartment {
-  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id              String         @id @default(uuid()) @db.Uuid
   firebaseId      String         @unique @map("firebase_id")
   title           String
   description     String
@@ -93,7 +93,7 @@ model Apartment {
 }
 
 model Favorite {
-  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
   firebaseId      String?   @unique @map("firebase_id")
   userId          String    @map("user_id")
   apartmentId     String    @map("apartment_id")
@@ -130,7 +130,7 @@ model Review {
 }
 
 model Notification {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String           @id @default(uuid()) @db.Uuid
   recipientId     String           @map("recipient_id")
   senderId        String?          @map("sender_id")
   type            NotificationType
@@ -151,7 +151,7 @@ model Notification {
 }
 
 model Subscription {
-  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String             @id @default(uuid()) @db.Uuid
   userId          String             @map("user_id")
   planName        String             @map("plan_name")
   price           Decimal            @default(0) @db.Decimal(10, 2)
