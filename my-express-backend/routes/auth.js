@@ -97,10 +97,12 @@ async function handleGoogleAuth(req, res) {
 
       if (updateParts.length > 0) {
         updateParams.push(user.uid);
-        await db.query(
-          `UPDATE users SET ${updateParts.join(", ")} WHERE uid = $${updateParams.length}`,
+        // Use RETURNING to get the updated user with new role
+        const updateResult = await db.query(
+          `UPDATE users SET ${updateParts.join(", ")} WHERE uid = $${updateParams.length} RETURNING *`,
           updateParams
         );
+        user = updateResult.rows[0]; // Update user with new data
       }
     } else {
       const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

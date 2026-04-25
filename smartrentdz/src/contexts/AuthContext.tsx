@@ -19,6 +19,7 @@ interface UserData {
   current_plan?: string;
   subscription_id?: string | null;
   created_at?: string;
+  role?: string; // "admin", "user", etc.
 }
 
 interface AuthResponse {
