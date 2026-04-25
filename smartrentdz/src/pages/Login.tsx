@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import axios from "axios";
+import { API_BASE_URL } from "@/lib/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const Login = () => {
     setIsLoading(true);
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/auth/google",
+        `${API_BASE_URL}/auth/google`,
         {
           idToken: credentialResponse.credential,
           mode: "login",
