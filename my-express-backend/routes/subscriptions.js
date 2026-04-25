@@ -73,8 +73,8 @@ router.post('/request', authMiddleware, upload.single('receipt'), async (req, re
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
 
     const insert = await db.query(
-      `INSERT INTO subscriptions (user_id, plan_name, price, receipt_image, status, start_date, end_date)
-       VALUES ($1, $2, $3, $4, 'pending', NULL, NULL)
+      `INSERT INTO subscriptions (id, user_id, plan_name, price, receipt_image, status, start_date, end_date)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'pending', NULL, NULL)
        RETURNING *`,
       [userId, normalizedPlan, price, receiptPath]
     );

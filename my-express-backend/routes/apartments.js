@@ -391,10 +391,10 @@ router.post("/", authMiddleware, async (req, res) => {
 
     const result = await db.query(
       `INSERT INTO apartments (
-        title, description, images, price, price_unit, property_type, wilaya, wilaya_id,
+        id, title, description, images, price, price_unit, property_type, wilaya, wilaya_id,
         municipality, rooms, bathrooms, area, amenities, verification_docs, is_featured, is_active,
         landlord_id, landlord_phone, landlord_name, firebase_id, lat, lng
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+      ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
       RETURNING *`,
       [
         title,

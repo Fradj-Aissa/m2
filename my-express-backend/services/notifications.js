@@ -69,13 +69,14 @@ async function createNotification({
 
   const insertResult = await db.query(
     `INSERT INTO notifications (
+      id,
       recipient_id,
       sender_id,
       type,
       apartment_id,
       message,
       link
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+    ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
     RETURNING id`,
     [recipientId, senderId, type, apartmentId, message, link]
   );

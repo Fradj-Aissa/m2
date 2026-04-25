@@ -126,8 +126,8 @@ router.post("/", async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO favorites (user_id, apartment_id, firebase_id)
-       VALUES ($1, $2, $3)
+      `INSERT INTO favorites (id, user_id, apartment_id, firebase_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)
        RETURNING *`,
       [userId, firebaseId, null]
     );
