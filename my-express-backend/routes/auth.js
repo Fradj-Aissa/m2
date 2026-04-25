@@ -70,39 +70,10 @@ async function handleGoogleAuth(req, res) {
     const picture = payload.picture || "";
 
     const googleIdExists = await hasColumn("users", "google_id");
-    const profilePicExists = await hasColumn("users", "profile_pic");
-    const accountTypeExists = await hasColumn("users", "account_type");
-    const typeColumnExists = await hasColumn("users", "type");
-    const currentPlanExists = await hasColumn("users", "current_plan");
-    const subscriptionIdExists = await hasColumn("users", "subscription_id");
     const roleExists = await hasColumn("users", "role");
 
-    const selectColumns = [
-      "uid",
-      "email",
-      "name",
-      "phone",
-      "created_at",
-      "firebase_id",
-      ...(googleIdExists ? ["google_id"] : []),
-      ...(profilePicExists ? ["profile_pic"] : []),
-      ...(currentPlanExists ? ["current_plan"] : []),
-      ...(subscriptionIdExists ? ["subscription_id"] : []),
-      ...(roleExists ? ["role"] : []),
-    ];
-
-    if (accountTypeExists && typeColumnExists) {
-      selectColumns.push("account_type", "type");
-    } else if (accountTypeExists) {
-      selectColumns.push("account_type", "account_type AS type");
-    } else if (typeColumnExists) {
-      selectColumns.push("type", "type AS account_type");
-    }
-
-    const selectColumnsString = selectColumns.join(", ");
-
     const userResult = await db.query(
-      `SELECT ${selectColumnsString} FROM users WHERE email = $1`,
+      `SELECT * FROM users WHERE email = $1`,
       [email]
     );
 
@@ -118,17 +89,10 @@ async function handleGoogleAuth(req, res) {
         updateParts.push(`google_id = $${updateParams.length + 1}`);
         updateParams.push(googleId);
       }
-      if (profilePicExists) {
-        updateParts.push(`profile_pic = $${updateParams.length + 1}`);
-        updateParams.push(picture);
-      }
-      if (accountTypeExists) {
-        updateParts.push(`account_type = $${updateParams.length + 1}`);
-        updateParams.push(normalizedAccountType);
-      }
-      if (typeColumnExists) {
-        updateParts.push(`type = $${updateParams.length + 1}`);
-        updateParams.push(legacyTypeValue);
+
+      if (email === process.env.ADMIN_EMAIL && roleExists && user.role !== "admin") {
+        updateParts.push(`role = $${updateParams.length + 1}`);
+        updateParams.push("admin");
       }
 
       if (updateParts.length > 0) {
@@ -138,51 +102,24 @@ async function handleGoogleAuth(req, res) {
           updateParams
         );
       }
-    } else if (mode === "login") {
-      return res.status(404).json({
-        error: "No Google account found. Please register first.",
-      });
     } else {
       const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const insertColumns = ["uid", "firebase_id", "email", "name", "phone"];
-      const insertValues = [uid, uid, email, name, ""];
+      const insertColumns = ["uid", "email", "name", "google_id"];
+      const insertValues = [uid, email, name, googleId];
 
-      if (typeColumnExists) {
-        insertColumns.push("type");
-        insertValues.push(legacyTypeValue);
-      }
-      if (accountTypeExists) {
-        insertColumns.push("account_type");
-        insertValues.push(normalizedAccountType);
-      }
-      if (googleIdExists) {
-        insertColumns.push("google_id");
-        insertValues.push(googleId);
-      }
-      if (profilePicExists) {
-        insertColumns.push("profile_pic");
-        insertValues.push(picture);
+      if (email === process.env.ADMIN_EMAIL && roleExists) {
+        insertColumns.push("role");
+        insertValues.push("admin");
       }
 
       const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
-      const returningColumns = [
-        ...insertColumns,
-        ...(roleExists ? ["role"] : []),
-      ].join(", ");
 
       const insertResult = await db.query(
-        `INSERT INTO users (${insertColumns.join(", ")})
-         VALUES (${placeholders})
-         RETURNING ${returningColumns}`,
+        `INSERT INTO users (${insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
         insertValues
       );
       user = insertResult.rows[0];
     }
-
-    user = normalizeUserPlan(user);
-    user.account_type = user.account_type || user.type || "renter";
-    user.type = user.type || user.account_type;
-    const requiresCompleteProfile = !user.phone;
 
     const jwtToken = jwt.sign(
       { uid: user.uid, email: user.email, role: user.role },
@@ -194,22 +131,11 @@ async function handleGoogleAuth(req, res) {
       message: "Authentication successful",
       user,
       token: jwtToken,
-      requiresCompleteProfile,
       isNewUser,
     });
   } catch (err) {
-    console.error("Google auth error:", err);
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      console.error("GOOGLE_CLIENT_ID is not set in environment variables.");
-    }
-    if (!process.env.DATABASE_URL) {
-      console.log("DATABASE_URL is not set. Using individual DB env vars.");
-    }
-
-    res.status(500).json({
-      error: "Failed to authenticate with Google",
-      details: err?.message || err,
-    });
+    console.error("Error during Google authentication:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
 
