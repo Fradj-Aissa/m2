@@ -4,10 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredType?: "renter" | "landlord";
-  requiredRole?: string; // e.g., "admin"
 }
 
-const ProtectedRoute = ({ children, requiredType, requiredRole }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, requiredType }: ProtectedRouteProps) => {
   const { currentUser, userData, loading } = useAuth();
   const location = useLocation();
 
@@ -23,19 +22,8 @@ const ProtectedRoute = ({ children, requiredType, requiredRole }: ProtectedRoute
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check required user type (account type)
   if (requiredType && userData?.type !== requiredType) {
     return <Navigate to="/dashboard" replace />;
-  }
-
-  // Check required role - case insensitive comparison
-  if (requiredRole) {
-    const userRole = userData?.role?.toLowerCase() || "";
-    const requiredRoleLower = requiredRole.toLowerCase();
-    
-    if (userRole !== requiredRoleLower) {
-      return <Navigate to="/dashboard" replace />;
-    }
   }
 
   return <>{children}</>;
