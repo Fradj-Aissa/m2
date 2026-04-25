@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   phone VARCHAR(20) NOT NULL,
   type VARCHAR(50) NOT NULL CHECK (type IN ('renter', 'landlord')),
+  role VARCHAR(50) DEFAULT NULL CHECK (role IN ('admin', NULL)),
   current_plan VARCHAR(20) NOT NULL DEFAULT 'Free',
   subscription_id UUID,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

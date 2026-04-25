@@ -37,6 +37,7 @@ model User {
   name            String
   phone           String
   type            String         
+  role            String?        @default(null)
   currentPlan     String         @default("Free") @map("current_plan")
   subscriptionId  String?        @db.Uuid @map("subscription_id")
   createdAt       DateTime?      @default(now()) @map("created_at")
