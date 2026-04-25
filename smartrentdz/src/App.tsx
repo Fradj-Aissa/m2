@@ -30,6 +30,7 @@ import AdminProperties from "./pages/admin/AdminProperties";
 import AdminReviews from "./pages/admin/AdminReviews";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const queryClient = new QueryClient();
 
@@ -146,6 +147,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          <SpeedInsights />
         </TooltipProvider>
       </SocketProvider>
     </AuthProvider>
