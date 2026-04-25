@@ -751,7 +751,7 @@ const Search = () => {
                           <div className="pointer-events-none absolute right-2 top-2 z-10 flex w-full justify-end pr-10">
                             <Badge
                               variant="secondary"
-                              className="bg-white/90 font-bold text-primary shadow-sm backdrop-blur-md"
+                              className="bg-card/90 font-bold text-primary shadow-sm backdrop-blur-md"
                             >
                               {distanceLabel}
                             </Badge>

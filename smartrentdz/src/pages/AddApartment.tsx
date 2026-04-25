@@ -489,7 +489,7 @@ const AddApartment = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Images Section */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="font-semibold mb-4">صور الشقة</h2>
               <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {imagePreviews.map((img, idx) => (
@@ -524,7 +524,7 @@ const AddApartment = () => {
             </div>
 
             {/* SECTION 1: Property Location */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-blue-600" />
                 الموقع
@@ -616,7 +616,7 @@ const AddApartment = () => {
             </div>
 
             {/* SECTION 2: Specifications */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="text-lg font-semibold mb-6">مواصفات الشقة</h2>
 
               <div className="grid gap-4 md:grid-cols-3">
@@ -694,7 +694,7 @@ const AddApartment = () => {
             </div>
 
             {/* SECTION 3: Pricing & AI Prediction */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-green-600" />
                 التسعير والتنبؤ
@@ -763,15 +763,15 @@ const AddApartment = () => {
             </div>
 
             {/* SECTION 4: AI Marketing */}
-            <div className="bg-purple-50 rounded-xl border border-purple-200 p-6">
+            <div className="bg-accent/5 dark:bg-accent/10 border-accent/20 dark:border-accent/30 p-6">
               <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
                 التسويق بالذكاء الاصطناعي
               </h2>
 
               {/* Style Selector */}
-              <div className="mb-6 pb-6 border-b border-purple-100">
-                <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-lg border border-purple-100">
+              <div className="mb-6 pb-6 border-b border-accent/10 dark:border-accent/20">
+                <div className="flex items-center justify-between gap-4 p-4 bg-card rounded-lg border border-accent/10 dark:border-accent/20">
                   <div className="space-y-1 flex-1">
                     <Label className="text-base font-medium">أسلوب الوصف</Label>
                     <p className="text-xs text-muted-foreground">
@@ -817,7 +817,7 @@ const AddApartment = () => {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
-                  className="bg-white border-purple-100"
+                  className="bg-card border-accent/10 dark:border-accent/20"
                 />
               </div>
 
@@ -831,12 +831,12 @@ const AddApartment = () => {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
-                  className="bg-white border-purple-100"
+                  className="bg-card border-accent/10 dark:border-accent/20"
                 />
               </div>
 
               {/* Property Type - moved to AI section */}
-              <div className="mt-6 pt-6 border-t border-purple-100">
+              <div className="mt-6 pt-6 border-t border-accent/10 dark:border-accent/20">
                 <div className="space-y-2">
                   <Label className="font-medium">نوع العقار</Label>
                   <Select
@@ -847,7 +847,7 @@ const AddApartment = () => {
                       setFormData({ ...formData, propertyType });
                     }}
                   >
-                    <SelectTrigger className="bg-white border-purple-100">
+                    <SelectTrigger className="bg-card border-accent/10 dark:border-accent/20">
                       <SelectValue placeholder="اختر نوع العقار" />
                     </SelectTrigger>
                     <SelectContent>
@@ -863,13 +863,13 @@ const AddApartment = () => {
             </div>
 
             {/* Amenities Section */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="text-lg font-semibold mb-4">المرافق والخدمات</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {amenitiesList.map((amenity) => (
                   <label
                     key={amenity}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border cursor-pointer hover:bg-gray-50 transition-colors"
                   >
                     <Checkbox
                       checked={formData.amenities.includes(amenity)}
@@ -882,7 +882,7 @@ const AddApartment = () => {
             </div>
 
             {/* Verification Documents */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <h2 className="text-lg font-semibold mb-2">وثائق إثبات الملكية (اختياري)</h2>
               <p className="text-sm text-muted-foreground mb-4">
                 هذه الوثائق تطلع عليها الإدارة فقط لتوثيق الشقة وزيادة مصداقية إعلانك.

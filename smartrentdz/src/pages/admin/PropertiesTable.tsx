@@ -23,6 +23,7 @@ import VerificationModal from "./VerificationModal";
 
 interface Property {
   id: string;
+  firebase_id?: string;
   title: string;
   description: string;
   price: number;
@@ -233,13 +234,13 @@ const PropertiesTable = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
-        return "bg-green-100 text-green-800";
+        return "bg-green-500/10 text-green-700 dark:text-green-400";
       case "rejected":
-        return "bg-red-100 text-red-800";
+        return "bg-red-500/10 text-red-700 dark:text-red-400";
       case "pending":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-500/10 text-orange-700 dark:text-orange-400";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -336,10 +337,10 @@ const PropertiesTable = () => {
                           <span
                             className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                               property.verification_status === "verified"
-                                ? "bg-blue-100 text-blue-800"
+                                ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                                 : property.verification_status === "rejected"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                                : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                             }`}
                           >
                             {property.verification_status === "verified" && "موثق"}

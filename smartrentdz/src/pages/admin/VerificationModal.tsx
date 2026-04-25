@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 interface Property {
   id: string;
   title: string;
-  firebase_id: string;
+  firebase_id?: string;
   verification_status: "pending" | "verified" | "rejected";
   verification_docs: string[];
   verification_feedback?: string;
@@ -115,9 +115,9 @@ const VerificationModal = ({
   };
 
   const statusBadgeColor = {
-    pending: "bg-yellow-100 text-yellow-800",
-    verified: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
+    pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    verified: "bg-green-500/10 text-green-700 dark:text-green-400",
+    rejected: "bg-red-500/10 text-red-700 dark:text-red-400",
   };
 
   return (

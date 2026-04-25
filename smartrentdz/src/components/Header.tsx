@@ -4,6 +4,7 @@ import { Home, Heart, User, Menu, X, LogOut, Building2, Settings } from "lucide-
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationBell from "@/components/NotificationBell";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +59,7 @@ const Header = () => {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           <Button variant="ghost" size="icon" asChild>
             <Link to="/favorites">
               <Heart className="h-5 w-5" />
@@ -120,6 +122,7 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           {currentUser ? <NotificationBell /> : null}
           <Button
             variant="ghost"

@@ -124,8 +124,8 @@ const UsersTable = () => {
 
   const getTypeColor = (type: string) => {
     return type === "landlord"
-      ? "bg-blue-100 text-blue-800"
-      : "bg-green-100 text-green-800";
+      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+      : "bg-green-500/10 text-green-700 dark:text-green-400";
   };
 
   const getTypeLabel = (type: string) => {
@@ -135,13 +135,13 @@ const UsersTable = () => {
   const getStatusColor = (status?: string) => {
     switch (status) {
       case "active":
-        return "bg-green-100 text-green-800";
+        return "bg-green-500/10 text-green-700 dark:text-green-400";
       case "inactive":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
       case "blocked":
-        return "bg-red-100 text-red-800";
+        return "bg-red-500/10 text-red-700 dark:text-red-400";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 

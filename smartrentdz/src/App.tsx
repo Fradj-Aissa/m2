@@ -31,13 +31,16 @@ import AdminReviews from "./pages/admin/AdminReviews";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
+import { ThemeProvider } from "@/contexts/ThemeContext";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <SocketProvider>
-        <TooltipProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -149,7 +152,8 @@ const App = () => (
         </TooltipProvider>
       </SocketProvider>
     </AuthProvider>
-  </QueryClientProvider>
+  </ThemeProvider>
+</QueryClientProvider>
 );
 
 export default App;

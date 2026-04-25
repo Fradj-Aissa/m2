@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-lea
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Loader2 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const customIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -38,6 +39,7 @@ function ChangeView({ center, zoom }: { center: L.LatLngExpression; zoom: number
 }
 
 const LocationPicker = ({ lat, lng, onLocationSelect, flyToCoords }: LocationPickerProps) => {
+  const { theme } = useTheme();
   const [position, setPosition] = useState<L.LatLng | null>(
     lat && lng ? new L.LatLng(lat, lng) : null
   );
@@ -102,8 +104,11 @@ const LocationPicker = ({ lat, lng, onLocationSelect, flyToCoords }: LocationPic
       >
         <ChangeView center={mapCenter} zoom={flyToCoords ? 12 : position ? 15 : 10} />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={theme === 'dark' 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          }
         />
         <MapEventsHandler />
         {position && <Marker position={position} icon={customIcon} />}

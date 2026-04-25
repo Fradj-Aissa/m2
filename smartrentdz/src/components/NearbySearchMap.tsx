@@ -16,6 +16,7 @@ import { Apartment } from "@/services/apartmentService";
 import { Button } from "./ui/button";
 import { LocateFixed } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Standard Leaflet Icon fix
 const customIcon = new L.Icon({
@@ -96,6 +97,7 @@ interface NearbySearchMapProps {
 }
 
 const NearbySearchMap = ({ apartments, centerLat, centerLng, onSearchPinMove }: NearbySearchMapProps) => {
+  const { theme } = useTheme();
   const searchCoords = useMemo(() => new L.LatLng(centerLat, centerLng), [centerLat, centerLng]);
 
   const handleLocateMe = () => {
@@ -120,8 +122,11 @@ const NearbySearchMap = ({ apartments, centerLat, centerLng, onSearchPinMove }: 
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={theme === 'dark' 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          }
         />
         
         <LocateOnMount coords={searchCoords} onMapMove={onSearchPinMove} />
