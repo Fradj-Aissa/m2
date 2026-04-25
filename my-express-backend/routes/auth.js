@@ -75,6 +75,7 @@ async function handleGoogleAuth(req, res) {
     const typeColumnExists = await hasColumn("users", "type");
     const currentPlanExists = await hasColumn("users", "current_plan");
     const subscriptionIdExists = await hasColumn("users", "subscription_id");
+    const roleExists = await hasColumn("users", "role");
 
     const selectColumns = [
       "uid",
@@ -87,6 +88,7 @@ async function handleGoogleAuth(req, res) {
       ...(profilePicExists ? ["profile_pic"] : []),
       ...(currentPlanExists ? ["current_plan"] : []),
       ...(subscriptionIdExists ? ["subscription_id"] : []),
+      ...(roleExists ? ["role"] : []),
     ];
 
     if (accountTypeExists && typeColumnExists) {
@@ -163,7 +165,10 @@ async function handleGoogleAuth(req, res) {
       }
 
       const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
-      const returningColumns = insertColumns.join(", ");
+      const returningColumns = [
+        ...insertColumns,
+        ...(roleExists ? ["role"] : []),
+      ].join(", ");
 
       const insertResult = await db.query(
         `INSERT INTO users (${insertColumns.join(", ")})
@@ -180,7 +185,7 @@ async function handleGoogleAuth(req, res) {
     const requiresCompleteProfile = !user.phone;
 
     const jwtToken = jwt.sign(
-      { uid: user.uid, email: user.email },
+      { uid: user.uid, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -258,6 +263,7 @@ router.post("/register", async (req, res) => {
     // Create user in database
     const accountTypeExists = await hasColumn("users", "account_type");
     const typeColumnExists = await hasColumn("users", "type");
+    const roleExists = await hasColumn("users", "role");
     const insertColumns = ["uid", "firebase_id", "email", "password", "name", "phone"];
     const insertValues = [uid, uid, email, hashedPassword, name, phone];
 
@@ -271,7 +277,16 @@ router.post("/register", async (req, res) => {
     }
 
     const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
-    const returningColumns = ["uid", "email", "name", "phone", ...(typeColumnExists ? ["type"] : []), ...(accountTypeExists ? ["account_type"] : []), "created_at"].join(", ");
+    const returningColumns = [
+      "uid",
+      "email",
+      "name",
+      "phone",
+      ...(typeColumnExists ? ["type"] : []),
+      ...(accountTypeExists ? ["account_type"] : []),
+      ...(roleExists ? ["role"] : []),
+      "created_at",
+    ].join(", ");
 
     const result = await db.query(
       `INSERT INTO users (${insertColumns.join(", ")})
@@ -284,7 +299,7 @@ router.post("/register", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { uid: user.uid, email: user.email },
+      { uid: user.uid, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -321,6 +336,7 @@ router.post("/login", async (req, res) => {
     const typeColumnExists = await hasColumn("users", "type");
     const currentPlanExists = await hasColumn("users", "current_plan");
     const subscriptionIdExists = await hasColumn("users", "subscription_id");
+    const roleExists = await hasColumn("users", "role");
     const selectColumns = [
       "uid",
       "email",
@@ -332,6 +348,7 @@ router.post("/login", async (req, res) => {
       ...(typeColumnExists ? ["type"] : []),
       ...(currentPlanExists ? ["current_plan"] : []),
       ...(subscriptionIdExists ? ["subscription_id"] : []),
+      ...(roleExists ? ["role"] : []),
     ].join(", ");
 
     // Find user by email
@@ -360,7 +377,7 @@ router.post("/login", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { uid: user.uid, email: user.email },
+      { uid: user.uid, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -451,6 +468,18 @@ router.post("/complete-profile", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "No fields to update" });
     }
 
+    const roleExists = await hasColumn("users", "role");
+    const returningColumns = [
+      "uid",
+      "email",
+      "name",
+      "phone",
+      "type",
+      "account_type",
+      ...(roleExists ? ["role"] : []),
+      "created_at",
+    ].join(", ");
+
     // Add uid to query values
     queryValues.push(uid);
     const uidParamIndex = paramIndex;
@@ -459,7 +488,7 @@ router.post("/complete-profile", authMiddleware, async (req, res) => {
     const updateQuery = `UPDATE users 
       SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP 
       WHERE uid = $${uidParamIndex} 
-      RETURNING uid, email, name, phone, type, account_type, created_at`;
+      RETURNING ${returningColumns}`;
 
     console.log("Update Query:", updateQuery);
     console.log("Query Values:", queryValues);

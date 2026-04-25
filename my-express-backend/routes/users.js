@@ -105,7 +105,7 @@ router.get("/", async (req, res) => {
   try {
     const { type } = req.query;
 
-    let query = "SELECT uid, email, name, phone, type, created_at FROM users";
+    let query = "SELECT uid, email, role, name, phone, type, created_at FROM users";
     const params = [];
 
     if (type) {
