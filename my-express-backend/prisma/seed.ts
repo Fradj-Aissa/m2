@@ -1,9 +1,20 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 
-const prisma = new PrismaClient();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set');
+}
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const algerianFirstNames = [
   'Amine', 'Yacine', 'Meriem', 'Fatma', 'Mourad', 'Karim', 'Nassim', 
