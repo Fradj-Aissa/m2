@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { SocketProvider } from "@/contexts/SocketContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ApartmentDetail from "./pages/ApartmentDetail";
@@ -40,6 +41,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <SpeedInsights />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
