@@ -25,6 +25,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { register, setAuthInfo } = useAuth();
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -117,18 +119,29 @@ const Register = () => {
     setIsLoading(true);
 
     try {
-      await register(
-        formData.email,
-        formData.password,
-        formData.name,
-        formData.phone,
-        formData.userType
-      );
-      toast({
-        title: "تم إنشاء الحساب بنجاح",
-        description: "مرحباً بك في اجرلي",
+      // Use FormData to support optional profile image
+      const payload = new FormData();
+      payload.append("email", formData.email);
+      payload.append("password", formData.password);
+      payload.append("name", formData.name);
+      payload.append("phone", formData.phone);
+      payload.append("account_type", formData.userType);
+      if (profileFile) {
+        payload.append("image", profileFile, profileFile.name);
+      }
+
+      const res = await axios.post(`${API_BASE_URL}/auth/register`, payload, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      navigate("/dashboard");
+
+      const { token, user } = res.data;
+      if (token && user) {
+        setAuthInfo({ token, user, isAuthenticated: true });
+        toast({ title: "تم إنشاء الحساب بنجاح", description: "مرحباً بك في اجرلي" });
+        navigate("/dashboard");
+      } else {
+        throw new Error("Unexpected response from server");
+      }
     } catch (error: any) {
       const errorMessage = error?.message || "حدث خطأ أثناء إنشاء الحساب";
       toast({
@@ -138,6 +151,18 @@ const Register = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (file) {
+      setProfileFile(file);
+      const url = URL.createObjectURL(file);
+      setProfilePreview(url);
+    } else {
+      setProfileFile(null);
+      setProfilePreview(null);
     }
   };
 
@@ -282,6 +307,28 @@ const Register = () => {
                     setFormData({ ...formData, phone: e.target.value })
                   }
                   required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="profile">صورة الملف الشخصي (اختياري)</Label>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                  {profilePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profilePreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">لا توجد صورة</span>
+                  )}
+                </div>
+                <input
+                  id="profile"
+                  name="profile"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="text-sm"
                 />
               </div>
             </div>

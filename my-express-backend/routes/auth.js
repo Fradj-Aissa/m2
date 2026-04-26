@@ -6,6 +6,18 @@ const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const authMiddleware = require("../middleware/authMiddleware");
 const { normalizeDisplayPlan } = require("../utils/plans");
+const multer = require("multer");
+const { uploadImageToImgBB } = require("../utils/imageUpload");
+
+// Multer setup for registration image uploads (memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = !!file.mimetype && file.mimetype.startsWith("image/");
+    cb(null, ok);
+  },
+});
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -68,6 +80,7 @@ async function handleGoogleAuth(req, res) {
     const googleId = payload.sub;
     const name = payload.name || "";
     const picture = payload.picture || "";
+    const phoneNumber = payload.phone_number || payload.phone || "";
 
     const googleIdExists = await hasColumn("users", "google_id");
     const roleExists = await hasColumn("users", "role");
@@ -90,6 +103,20 @@ async function handleGoogleAuth(req, res) {
         updateParams.push(googleId);
       }
 
+      // Update profile image if provided
+      const profileImageExists = await hasColumn("users", "profile_image");
+      if (picture && profileImageExists) {
+        updateParts.push(`profile_image = $${updateParams.length + 1}`);
+        updateParams.push(picture);
+      }
+
+      // Update phone if present in token and column exists
+      const phoneColumnExists = await hasColumn("users", "phone");
+      if (phoneNumber && phoneColumnExists) {
+        updateParts.push(`phone = $${updateParams.length + 1}`);
+        updateParams.push(phoneNumber);
+      }
+
       if (email === process.env.ADMIN_EMAIL && roleExists && user.role !== "admin") {
         updateParts.push(`role = $${updateParams.length + 1}`);
         updateParams.push("admin");
@@ -106,6 +133,20 @@ async function handleGoogleAuth(req, res) {
       const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const insertColumns = ["uid", "email", "name", "google_id"];
       const insertValues = [uid, email, name, googleId];
+
+      // include profile_image if column exists and picture is available
+      const profileImageExists = await hasColumn("users", "profile_image");
+      if (picture && profileImageExists) {
+        insertColumns.push("profile_image");
+        insertValues.push(picture);
+      }
+
+      // include phone if present and phone column exists
+      const phoneColumnExists = await hasColumn("users", "phone");
+      if (phoneNumber && phoneColumnExists) {
+        insertColumns.push("phone");
+        insertValues.push(phoneNumber);
+      }
 
       if (email === process.env.ADMIN_EMAIL && roleExists) {
         insertColumns.push("role");
@@ -144,9 +185,22 @@ async function handleGoogleAuth(req, res) {
  * POST /api/auth/register
  * Body: { email, password, name, phone, type }
  */
-router.post("/register", async (req, res) => {
+router.post("/register", upload.single("image"), async (req, res) => {
   try {
-    const { email, password, name, phone = "", account_type, type } = req.body;
+    // when multipart/form-data is used, fields are in req.body and file in req.file
+    const { email, password, name } = req.body;
+    let { phone = "", account_type, type } = req.body || {};
+
+    // If a file is uploaded, process it
+    let profileImageUrl = null;
+    if (req.file && req.file.buffer) {
+      try {
+        profileImageUrl = await uploadImageToImgBB(req.file.buffer, req.file.originalname || `avatar_${Date.now()}`);
+      } catch (uploadErr) {
+        console.error("Registration image upload failed:", uploadErr);
+        return res.status(400).json({ error: "Failed to upload profile image" });
+      }
+    }
     const requestedAccountType = account_type || type || "renter";
 
     const normalizedAccountType =
@@ -193,6 +247,13 @@ router.post("/register", async (req, res) => {
     const insertColumns = ["uid", "firebase_id", "email", "password", "name", "phone"];
     const insertValues = [uid, uid, email, hashedPassword, name, phone];
 
+    // include profile_image if uploaded and column exists
+    const profileImageColExists = await hasColumn("users", "profile_image");
+    if (profileImageUrl && profileImageColExists) {
+      insertColumns.push("profile_image");
+      insertValues.push(profileImageUrl);
+    }
+
     if (typeColumnExists) {
       insertColumns.push("type");
       insertValues.push(legacyTypeValue);
@@ -208,6 +269,7 @@ router.post("/register", async (req, res) => {
       "email",
       "name",
       "phone",
+      ...(profileImageColExists ? ["profile_image"] : []),
       ...(typeColumnExists ? ["type"] : []),
       ...(accountTypeExists ? ["account_type"] : []),
       ...(roleExists ? ["role"] : []),
