@@ -131,8 +131,14 @@ async function handleGoogleAuth(req, res) {
       }
     } else {
       const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const insertColumns = ["uid", "email", "name", "google_id"];
-      const insertValues = [uid, email, name, googleId];
+      const insertColumns = ["uid", "email", "name"];
+      const insertValues = [uid, email, name];
+
+      // include google_id only if column exists
+      if (googleIdExists) {
+        insertColumns.push("google_id");
+        insertValues.push(googleId);
+      }
 
       // include profile_image if column exists and picture is available
       const profileImageExists = await hasColumn("users", "profile_image");
@@ -155,11 +161,16 @@ async function handleGoogleAuth(req, res) {
 
       const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
 
-      const insertResult = await db.query(
-        `INSERT INTO users (${insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
-        insertValues
-      );
-      user = insertResult.rows[0];
+      try {
+        const insertResult = await db.query(
+          `INSERT INTO users (${insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
+          insertValues
+        );
+        user = insertResult.rows[0];
+      } catch (dbErr) {
+        console.error("Google auth - insert user failed:", dbErr);
+        throw dbErr;
+      }
     }
 
     const jwtToken = jwt.sign(
@@ -176,7 +187,8 @@ async function handleGoogleAuth(req, res) {
     });
   } catch (err) {
     console.error("Error during Google authentication:", err);
-    res.status(500).json({ error: "Internal server error" });
+    const devDetails = process.env.NODE_ENV === "development" ? err.message || err : undefined;
+    res.status(500).json({ error: "Internal server error", details: devDetails });
   }
 }
 

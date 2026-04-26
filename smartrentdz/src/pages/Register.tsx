@@ -9,6 +9,7 @@ import {
   Phone,
   Home,
   Building2,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -203,6 +204,53 @@ const Register = () => {
             </p>
           </div>
 
+          {/* Avatar Upload - Premium Top Section */}
+          <div className="flex flex-col items-center py-6 px-4 bg-gradient-to-b from-muted to-transparent rounded-xl">
+            {/* Hidden file input */}
+            <input
+              id="profile-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {/* Circular Avatar Container */}
+            <div className="relative group mb-3">
+              {/* Glowing Background Circle */}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/40 via-primary/20 to-primary/40 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              
+              {/* Avatar Circle */}
+              <label
+                htmlFor="profile-upload"
+                className="relative w-24 h-24 rounded-full bg-muted flex items-center justify-center overflow-hidden cursor-pointer shadow-lg border-2 border-primary/30 group-hover:border-primary/60 transition-all duration-300"
+              >
+                {profilePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profilePreview}
+                    alt="profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center w-full h-full bg-gradient-to-br from-muted-foreground/20 to-muted-foreground/10">
+                    <User className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* Camera Icon Overlay */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Camera className="h-6 w-6 text-primary-foreground" />
+                </div>
+              </label>
+            </div>
+
+            {/* Label */}
+            <p className="text-sm text-muted-foreground">
+              صورة الملف الشخصي <span className="text-xs">(اختياري)</span>
+            </p>
+          </div>
+
           {/* User Type Selection */}
           <div className="space-y-3">
             <Label>نوع الحساب</Label>
@@ -307,28 +355,6 @@ const Register = () => {
                     setFormData({ ...formData, phone: e.target.value })
                   }
                   required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="profile">صورة الملف الشخصي (اختياري)</Label>
-              <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                  {profilePreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profilePreview} alt="preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm text-muted-foreground">لا توجد صورة</span>
-                  )}
-                </div>
-                <input
-                  id="profile"
-                  name="profile"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="text-sm"
                 />
               </div>
             </div>
