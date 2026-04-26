@@ -470,4 +470,144 @@ router.post("/verify", async (req, res) => {
   }
 });
 
+/**
+ * Change user password
+ * POST /api/auth/change-password
+ * Headers: Authorization: Bearer <token>
+ * Body: { currentPassword, newPassword }
+ */
+router.post("/change-password", authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const uid = req.user?.uid;
+
+    if (!uid) {
+      return res.status(401).json({ error: "Unauthorized - missing user ID" });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: "Missing required fields: currentPassword, newPassword",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: "New password must be at least 6 characters long",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        error: "New password must be different from current password",
+      });
+    }
+
+    // Fetch user from database
+    const userResult = await db.query(
+      "SELECT uid, password FROM users WHERE uid = $1",
+      [uid]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify current password
+    if (!user.password) {
+      return res.status(400).json({
+        error: "User does not have a password set. Please complete your profile first.",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash and update new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updateResult = await db.query(
+      "UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE uid = $2 RETURNING uid, email, name",
+      [hashedPassword, uid]
+    );
+
+    res.json({
+      message: "Password changed successfully",
+      user: updateResult.rows[0],
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
+/**
+ * Delete user account
+ * DELETE /api/auth/account
+ * Headers: Authorization: Bearer <token>
+ * Body: { password } - Require password confirmation for security
+ */
+router.delete("/account", authMiddleware, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const uid = req.user?.uid;
+
+    if (!uid) {
+      return res.status(401).json({ error: "Unauthorized - missing user ID" });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        error: "Password is required for account deletion confirmation",
+      });
+    }
+
+    // Fetch user to verify password
+    const userResult = await db.query(
+      "SELECT uid, password, email FROM users WHERE uid = $1",
+      [uid]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify password
+    if (!user.password) {
+      return res.status(400).json({
+        error: "Cannot delete account. User does not have a password set.",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Password is incorrect" });
+    }
+
+    // Delete user account
+    // Note: Cascade delete is handled by database constraints on apartments and other relations
+    const deleteResult = await db.query(
+      "DELETE FROM users WHERE uid = $1 RETURNING uid, email",
+      [uid]
+    );
+
+    if (deleteResult.rows.length === 0) {
+      return res.status(404).json({ error: "Failed to delete user" });
+    }
+
+    res.json({
+      message: "Account deleted successfully",
+      deletedUser: deleteResult.rows[0],
+    });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 module.exports = router;

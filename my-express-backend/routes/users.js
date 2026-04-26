@@ -1,6 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const multer = require("multer");
+const authMiddleware = require("../middleware/authMiddleware");
+const { uploadImageToImgBB, validateAlgerianPhoneNumber } = require("../utils/imageUpload");
+
+// Configure multer for image uploads (in memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed"));
+    }
+    cb(null, true);
+  },
+});
 
 // Get user by ID/UID
 // GET /api/users/:uid
@@ -139,6 +154,100 @@ router.delete("/:uid", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+/**
+ * Upload user avatar
+ * PATCH /api/users/:uid/avatar
+ * Requires: image file (multipart/form-data)
+ */
+router.patch("/:uid/avatar", authMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { uid: authUid } = req.user;
+
+    // Verify user is updating their own avatar
+    if (uid !== authUid) {
+      return res.status(403).json({ error: "Unauthorized to update this user's avatar" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    // Upload image to ImgBB
+    const imageUrl = await uploadImageToImgBB(
+      req.file.buffer,
+      `avatar_${uid}_${Date.now()}.jpg`
+    );
+
+    // Update user's image field in database
+    const result = await db.query(
+      `UPDATE users SET profile_image = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE uid = $2 RETURNING uid, email, name, phone, profile_image, avatar, type, created_at`,
+      [imageUrl, uid]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: "Avatar uploaded successfully",
+      user: result.rows[0],
+      imageUrl,
+    });
+  } catch (error) {
+    console.error("Avatar upload error:", error);
+    res.status(500).json({ error: error.message || "Failed to upload avatar" });
+  }
+});
+
+/**
+ * Update user phone number with validation
+ * PATCH /api/users/:uid/phone
+ * Requires: phone (String)
+ */
+router.patch("/:uid/phone", authMiddleware, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { phone } = req.body;
+    const { uid: authUid } = req.user;
+
+    // Verify user is updating their own phone
+    if (uid !== authUid) {
+      return res.status(403).json({ error: "Unauthorized to update this user's phone" });
+    }
+
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    // Validate Algerian phone number
+    if (!validateAlgerianPhoneNumber(phone)) {
+      return res.status(400).json({
+        error: "Invalid phone number. Algerian numbers must start with 05, 06, or 07",
+      });
+    }
+
+    const result = await db.query(
+      `UPDATE users SET phone = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE uid = $2 RETURNING uid, email, name, phone, type, created_at`,
+      [phone, uid]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: "Phone number updated successfully",
+      user: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Phone update error:", error);
+    res.status(500).json({ error: "Failed to update phone number" });
   }
 });
 

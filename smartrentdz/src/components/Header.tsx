@@ -72,11 +72,19 @@ const Header = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-xs font-bold text-primary">
-                      {userData?.name?.charAt(0) || "م"}
-                    </span>
-                  </div>
+                  {userData?.profile_image || userData?.avatar ? (
+                    <img
+                      src={userData.profile_image || userData.avatar}
+                      alt={userData?.name || "مستخدم"}
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+                      <span className="text-xs font-bold text-primary">
+                        {userData?.name?.charAt(0) || "م"}
+                      </span>
+                    </div>
+                  )}
                   <span className="max-w-24 truncate">{userData?.name || "مستخدم"}</span>
                 </Button>
               </DropdownMenuTrigger>

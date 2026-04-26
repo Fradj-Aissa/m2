@@ -102,6 +102,17 @@ export function apiPatch<T>(endpoint: string, data: unknown): Promise<T> {
 /**
  * DELETE request
  */
-export function apiDelete<T>(endpoint: string): Promise<T> {
-  return apiCall<T>('DELETE', endpoint);
+export function apiDelete<T>(endpoint: string, options?: { data?: unknown }): Promise<T> {
+  try {
+    const normalizedUrl = endpoint.replace(/^\/+/, '');
+    return axiosInstance({
+      method: 'DELETE',
+      url: normalizedUrl,
+      data: options?.data,
+    }).then(response => response.data as T);
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || 'API Error';
+    console.error(`API Error [DELETE ${endpoint}]:`, errorMessage);
+    throw error;
+  }
 }

@@ -18,6 +18,9 @@ interface UserData {
   account_type?: "renter" | "landlord";
   current_plan?: string;
   subscription_id?: string | null;
+  profile_image?: string | null;
+  avatar?: string | null;
+  image?: string | null;
   created_at?: string;
 }
 
@@ -47,6 +50,7 @@ interface AuthContextType {
   ) => Promise<void>;
   logout: () => Promise<void>;
   setAuthInfo: ({ token, user, isAuthenticated }: AuthInfo) => void;
+  updateUserAvatar: (imageUrl: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -153,6 +157,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   /**
+   * Update user avatar in local state and storage
+   */
+  const updateUserAvatar = (imageUrl: string) => {
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        profile_image: imageUrl,
+        avatar: imageUrl,
+      };
+      setCurrentUser(updatedUser);
+      setUserData(updatedUser);
+      localStorage.setItem("userData", JSON.stringify(updatedUser));
+    }
+  };
+
+  /**
    * Restore user session from localStorage on app load
    */
   useEffect(() => {
@@ -185,6 +205,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     register,
     logout,
     setAuthInfo,
+    updateUserAvatar,
   };
 
   return (

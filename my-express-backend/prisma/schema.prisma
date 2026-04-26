@@ -33,6 +33,7 @@ model User {
   password        String?
   profilePic      String?        @map("profile_pic")
   avatar          String?
+  image           String?        @map("profile_image")
   accountType     String?        @map("account_type")
   name            String
   phone           String
