@@ -15,12 +15,14 @@ interface UserData {
   name: string;
   phone: string;
   type: "renter" | "landlord";
-  account_type?: "renter" | "landlord";
+  account_type?: "renter" | "landlord" | "owner";
   current_plan?: string;
   subscription_id?: string | null;
   profile_image?: string | null;
   avatar?: string | null;
   image?: string | null;
+  google_id?: string | null;
+  has_password?: boolean;
   created_at?: string;
 }
 

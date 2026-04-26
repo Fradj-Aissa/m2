@@ -200,9 +200,13 @@ async function handleGoogleAuth(req, res) {
       { expiresIn: "7d" }
     );
 
+    // Strip sensitive fields and add a safe has_password flag
+    const { password: _pw, ...safeUser } = user;
+    safeUser.has_password = !!user.password; // true = email/password account, false = Google-only
+
     res.json({
       message: "Authentication successful",
-      user,
+      user: safeUser,
       token: jwtToken,
       isNewUser,
     });
@@ -408,10 +412,11 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Return user without password
+    // Return user without password, but with a has_password flag for the frontend
     const { password: _, ...userWithoutPassword } = user;
     const normalizedUser = normalizeUserPlan(userWithoutPassword);
     normalizedUser.account_type = accountType;
+    normalizedUser.has_password = true; // email/password login always has a password
 
     res.json({
       message: "Login successful",
@@ -648,7 +653,14 @@ router.post("/change-password", authMiddleware, async (req, res) => {
  * Delete user account
  * DELETE /api/auth/account
  * Headers: Authorization: Bearer <token>
- * Body: { password } - Require password confirmation for security
+ * Body: { password } - Required for email/password users; optional for Google-only users
+ *
+ * Strategy:
+ *  - If the user has a password (email/password account), verify it before deleting.
+ *  - If the user has NO password (Google OAuth only), allow deletion without a password
+ *    so that Google users can also delete their accounts.
+ *  - Explicitly delete child records before deleting the user as a belt-and-suspenders
+ *    guard against any FK constraint issues, even though the schema uses CASCADE.
  */
 router.delete("/account", authMiddleware, async (req, res) => {
   try {
@@ -659,13 +671,7 @@ router.delete("/account", authMiddleware, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized - missing user ID" });
     }
 
-    if (!password) {
-      return res.status(400).json({
-        error: "Password is required for account deletion confirmation",
-      });
-    }
-
-    // Fetch user to verify password
+    // Fetch user
     const userResult = await db.query(
       "SELECT uid, password, email FROM users WHERE uid = $1",
       [uid]
@@ -677,20 +683,41 @@ router.delete("/account", authMiddleware, async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Verify password
-    if (!user.password) {
-      return res.status(400).json({
-        error: "Cannot delete account. User does not have a password set.",
-      });
+    // Password verification:
+    // - Email/password accounts MUST provide their password.
+    // - Google-only accounts (password IS NULL) may skip this step.
+    if (user.password) {
+      // This is an email/password account — require password confirmation.
+      if (!password) {
+        return res.status(400).json({
+          error: "Password is required to confirm account deletion",
+        });
+      }
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
+        return res.status(401).json({ error: "Password is incorrect" });
+      }
+    }
+    // else: Google-only user — no password check needed.
+
+    // Explicitly clean up related records to avoid any FK constraint surprises.
+    // The schema already uses onDelete: Cascade, but we do this explicitly
+    // so that any future schema changes don't break account deletion.
+    try {
+      await db.query("DELETE FROM favorites    WHERE user_id = $1", [uid]);
+      await db.query("DELETE FROM reviews      WHERE renter_id = $1", [uid]);
+      await db.query("DELETE FROM subscriptions WHERE user_id = $1", [uid]);
+      // Nullify sender_id on notifications where this user was the sender
+      // (recipient notifications cascade-delete with the user row)
+      await db.query("UPDATE notifications SET sender_id = NULL WHERE sender_id = $1", [uid]);
+      // Apartments and their child records (favorites, reviews, notifications)
+      // cascade via the apartments FK — handled when we delete the user row.
+    } catch (cleanupErr) {
+      console.error("Delete account - cleanup error (non-fatal):", cleanupErr);
+      // Non-fatal: continue to delete the user row; cascade will handle the rest.
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "Password is incorrect" });
-    }
-
-    // Delete user account
-    // Note: Cascade delete is handled by database constraints on apartments and other relations
+    // Hard-delete the user record — this cascades to apartments, notifications, etc.
     const deleteResult = await db.query(
       "DELETE FROM users WHERE uid = $1 RETURNING uid, email",
       [uid]
@@ -700,13 +727,16 @@ router.delete("/account", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Failed to delete user" });
     }
 
+    console.log(`Account hard-deleted: uid=${uid}, email=${deleteResult.rows[0].email}`);
+
     res.json({
       message: "Account deleted successfully",
+      deleted: true,
       deletedUser: deleteResult.rows[0],
     });
   } catch (error) {
     console.error("Delete account error:", error);
-    res.status(500).json({ error: "Failed to delete account" });
+    res.status(500).json({ error: "Failed to delete account", details: process.env.NODE_ENV === "development" ? error.message : undefined });
   }
 });
 

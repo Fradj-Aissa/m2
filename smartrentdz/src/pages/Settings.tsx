@@ -29,6 +29,9 @@ const Settings = () => {
   const { toast } = useToast();
   const { currentUser, userData, logout, updateUserAvatar } = useAuth();
   const navigate = useNavigate();
+  // Detect Google-only accounts: they have no password set in the DB.
+  // The backend now allows deletion without a password for these accounts.
+  const isGoogleOnlyUser = !!(userData && (userData as any).google_id && !(userData as any).has_password);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -172,12 +175,14 @@ const Settings = () => {
    * Delete user account
    */
   const handleDeleteAccount = async (password: string) => {
-    if (!currentUser || !password) return;
+    if (!currentUser) return;
+    // Google-only users don't need a password, but email/password users do.
+    if (!isGoogleOnlyUser && !password) return;
 
     setIsDeleting(true);
     try {
       await apiDelete("/auth/account", {
-        data: { password },
+        data: password ? { password } : {},
       });
 
       toast({
@@ -185,9 +190,9 @@ const Settings = () => {
         description: "سيتم تسجيل خروجك الآن",
       });
 
-      // Clear local storage and logout
-      localStorage.removeItem("token");
-      localStorage.removeItem("userData");
+      // Full storage wipe — belt-and-suspenders cleanup before logout
+      localStorage.clear();
+      sessionStorage.clear();
       await logout();
       navigate("/", { replace: true });
     } catch (error: any) {
@@ -430,6 +435,7 @@ const Settings = () => {
                     <DeleteAccountDialog
                       onConfirm={handleDeleteAccount}
                       isLoading={isDeleting}
+                      isGoogleUser={isGoogleOnlyUser}
                     />
                   </div>
                 </div>
@@ -531,20 +537,28 @@ const Settings = () => {
 const DeleteAccountDialog = ({
   onConfirm,
   isLoading,
+  isGoogleUser,
 }: {
   onConfirm: (password: string) => void;
   isLoading: boolean;
+  isGoogleUser: boolean;
 }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [open, setOpen] = useState(false);
 
   const handleConfirm = () => {
-    if (password) {
+    if (isGoogleUser) {
+      // Google-only accounts have no password — confirm directly
+      onConfirm("");
+    } else if (password) {
       onConfirm(password);
       setPassword("");
     }
   };
+
+  // Confirm button is enabled when: Google user (no password needed) OR password entered
+  const canConfirm = isGoogleUser ? true : !!password;
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -562,38 +576,45 @@ const DeleteAccountDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Password Confirmation */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="delete-password">تأكيد كلمة المرور</Label>
-            <div className="relative">
-              <Input
-                id="delete-password"
-                type={showPassword ? "text" : "password"}
-                placeholder="أدخل كلمة المرور الخاصة بك"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
+        {isGoogleUser ? (
+          /* Google-only users: no password needed, just show a warning */
+          <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400">
+            حسابك مرتبط بـ Google فقط. لا تحتاج إلى كلمة مرور لتأكيد الحذف.
+          </div>
+        ) : (
+          /* Email/password users: must enter password */
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="delete-password">تأكيد كلمة المرور</Label>
+              <div className="relative">
+                <Input
+                  id="delete-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="أدخل كلمة المرور الخاصة بك"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <AlertDialogFooter className="gap-2">
           <AlertDialogCancel disabled={isLoading}>إلغاء</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
-            disabled={!password || isLoading}
+            disabled={!canConfirm || isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {isLoading ? (
