@@ -84,93 +84,114 @@ async function handleGoogleAuth(req, res) {
 
     const googleIdExists = await hasColumn("users", "google_id");
     const roleExists = await hasColumn("users", "role");
+    // detect which profile image column exists in DB (robust to schema changes)
+    let profileCol = null;
+    if (await hasColumn("users", "profile_image")) profileCol = "profile_image";
+    else if (await hasColumn("users", "profile_pic")) profileCol = "profile_pic";
+    else if (await hasColumn("users", "image")) profileCol = "image";
 
-    const userResult = await db.query(
-      `SELECT * FROM users WHERE email = $1`,
-      [email]
-    );
-
+    const userResult = await db.query(`SELECT * FROM users WHERE email = $1`, [email]);
     let user;
     const isNewUser = userResult.rows.length === 0;
 
-    if (userResult.rows.length > 0) {
-      user = userResult.rows[0];
-      const updateParts = [];
-      const updateParams = [];
+    try {
+      if (userResult.rows.length > 0) {
+        user = userResult.rows[0];
+        const updateParts = [];
+        const updateParams = [];
 
-      if (googleIdExists) {
-        updateParts.push(`google_id = $${updateParams.length + 1}`);
-        updateParams.push(googleId);
+        if (googleIdExists) {
+          updateParts.push(`google_id = $${updateParams.length + 1}`);
+          updateParams.push(googleId);
+        }
+
+        // Update profile image if provided and column exists
+        const profileImageExists = !!profileCol;
+        if (profileImageExists && picture) {
+          updateParts.push(`${profileCol} = $${updateParams.length + 1}`);
+          updateParams.push(picture);
+        }
+
+        // Update phone if column exists. If Google provided a phone use it, otherwise skip update.
+        const phoneColumnExists = await hasColumn("users", "phone");
+        if (phoneColumnExists && phoneNumber) {
+          updateParts.push(`phone = $${updateParams.length + 1}`);
+          updateParams.push(phoneNumber);
+        }
+
+        if (email === process.env.ADMIN_EMAIL && roleExists && user.role !== "admin") {
+          updateParts.push(`role = $${updateParams.length + 1}`);
+          updateParams.push("admin");
+        }
+
+        if (updateParts.length > 0) {
+          updateParams.push(user.uid);
+          try {
+            await db.query(`UPDATE users SET ${updateParts.join(", ")} WHERE uid = $${updateParams.length}`, updateParams);
+          } catch (updateErr) {
+            console.error("Google auth - failed to update existing user:", {
+              email,
+              updateParts,
+              updateParams,
+              error: updateErr,
+            });
+            return res.status(500).json({ error: "Failed to update user", details: updateErr.message });
+          }
+        }
+      } else {
+        const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const insertColumns = ["uid", "email", "name"];
+        const insertValues = [uid, email, name];
+
+        // include google_id only if column exists
+        if (googleIdExists) {
+          insertColumns.push("google_id");
+          insertValues.push(googleId);
+        }
+
+        // include profile image column if it exists
+        const profileImageExists = !!profileCol;
+        if (profileImageExists) {
+          // if Google provided picture use it, otherwise skip inserting the column (allow DB default/null)
+          if (picture) {
+            insertColumns.push(profileCol);
+            insertValues.push(picture);
+          }
+        }
+
+        // include phone column if exists. If Google doesn't provide phone, use empty string to satisfy non-null schema.
+        const phoneColumnExists = await hasColumn("users", "phone");
+        if (phoneColumnExists) {
+          insertColumns.push("phone");
+          insertValues.push(phoneNumber || "");
+        }
+
+        if (email === process.env.ADMIN_EMAIL && roleExists) {
+          insertColumns.push("role");
+          insertValues.push("admin");
+        }
+
+        const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
+
+        try {
+          const insertResult = await db.query(
+            `INSERT INTO users (${insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
+            insertValues
+          );
+          user = insertResult.rows[0];
+        } catch (insertErr) {
+          console.error("Google auth - insert user failed", {
+            email,
+            insertColumns,
+            insertValues: insertValues.map((v) => (typeof v === "string" && v.length > 100 ? `${v.slice(0, 100)}...` : v)),
+            error: insertErr,
+          });
+          return res.status(500).json({ error: "Failed to create user", details: insertErr.message });
+        }
       }
-
-      // Update profile image if provided
-      const profileImageExists = await hasColumn("users", "profile_image");
-      if (picture && profileImageExists) {
-        updateParts.push(`profile_image = $${updateParams.length + 1}`);
-        updateParams.push(picture);
-      }
-
-      // Update phone if present in token and column exists
-      const phoneColumnExists = await hasColumn("users", "phone");
-      if (phoneNumber && phoneColumnExists) {
-        updateParts.push(`phone = $${updateParams.length + 1}`);
-        updateParams.push(phoneNumber);
-      }
-
-      if (email === process.env.ADMIN_EMAIL && roleExists && user.role !== "admin") {
-        updateParts.push(`role = $${updateParams.length + 1}`);
-        updateParams.push("admin");
-      }
-
-      if (updateParts.length > 0) {
-        updateParams.push(user.uid);
-        await db.query(
-          `UPDATE users SET ${updateParts.join(", ")} WHERE uid = $${updateParams.length}`,
-          updateParams
-        );
-      }
-    } else {
-      const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const insertColumns = ["uid", "email", "name"];
-      const insertValues = [uid, email, name];
-
-      // include google_id only if column exists
-      if (googleIdExists) {
-        insertColumns.push("google_id");
-        insertValues.push(googleId);
-      }
-
-      // include profile_image if column exists and picture is available
-      const profileImageExists = await hasColumn("users", "profile_image");
-      if (picture && profileImageExists) {
-        insertColumns.push("profile_image");
-        insertValues.push(picture);
-      }
-
-      // include phone if present and phone column exists
-      const phoneColumnExists = await hasColumn("users", "phone");
-      if (phoneNumber && phoneColumnExists) {
-        insertColumns.push("phone");
-        insertValues.push(phoneNumber);
-      }
-
-      if (email === process.env.ADMIN_EMAIL && roleExists) {
-        insertColumns.push("role");
-        insertValues.push("admin");
-      }
-
-      const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");
-
-      try {
-        const insertResult = await db.query(
-          `INSERT INTO users (${insertColumns.join(", ")}) VALUES (${placeholders}) RETURNING *`,
-          insertValues
-        );
-        user = insertResult.rows[0];
-      } catch (dbErr) {
-        console.error("Google auth - insert user failed:", dbErr);
-        throw dbErr;
-      }
+    } catch (innerErr) {
+      console.error("Google auth - user create/update unexpected error:", { email, error: innerErr });
+      return res.status(500).json({ error: "Failed to process Google user", details: innerErr.message });
     }
 
     const jwtToken = jwt.sign(
@@ -259,10 +280,15 @@ router.post("/register", upload.single("image"), async (req, res) => {
     const insertColumns = ["uid", "firebase_id", "email", "password", "name", "phone"];
     const insertValues = [uid, uid, email, hashedPassword, name, phone];
 
-    // include profile_image if uploaded and column exists
-    const profileImageColExists = await hasColumn("users", "profile_image");
-    if (profileImageUrl && profileImageColExists) {
-      insertColumns.push("profile_image");
+    // detect profile image column for registration (support profile_image/profile_pic/image)
+    let profileColReg = null;
+    if (await hasColumn("users", "profile_image")) profileColReg = "profile_image";
+    else if (await hasColumn("users", "profile_pic")) profileColReg = "profile_pic";
+    else if (await hasColumn("users", "image")) profileColReg = "image";
+
+    // include profile image if uploaded and column exists
+    if (profileImageUrl && profileColReg) {
+      insertColumns.push(profileColReg);
       insertValues.push(profileImageUrl);
     }
 
@@ -281,7 +307,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
       "email",
       "name",
       "phone",
-      ...(profileImageColExists ? ["profile_image"] : []),
+      ...(profileColReg ? [profileColReg] : []),
       ...(typeColumnExists ? ["type"] : []),
       ...(accountTypeExists ? ["account_type"] : []),
       ...(roleExists ? ["role"] : []),
