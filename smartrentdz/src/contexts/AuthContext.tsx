@@ -23,6 +23,7 @@ interface UserData {
   image?: string | null;
   google_id?: string | null;
   has_password?: boolean;
+  role?: "admin" | "user" | null;
   created_at?: string;
 }
 

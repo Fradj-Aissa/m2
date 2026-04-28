@@ -7,6 +7,45 @@ const { createNotification } = require('../services/notifications');
 const { normalizeStoredPlan } = require('../utils/plans');
 
 /**
+ * POST /api/admin/secure-verify
+ * Secure admin promotion route
+ */
+router.post('/secure-verify', async (req, res) => {
+  try {
+    const { email, password, uid } = req.body;
+
+    if (!email || !password || !uid) {
+      return res.status(400).json({ error: 'Missing required fields: email, password, uid' });
+    }
+
+    const adminLoginEmail = process.env.ADMIN_LOGIN_EMAIL;
+    const adminLoginPassword = process.env.ADMIN_LOGIN_PASSWORD;
+
+    if (email !== adminLoginEmail || password !== adminLoginPassword) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+
+    // Update user to admin in database
+    const result = await db.query(
+      "UPDATE users SET role = 'admin', updated_at = CURRENT_TIMESTAMP WHERE uid = $1 RETURNING *",
+      [uid]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      message: 'User promoted to admin successfully',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Secure verify error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/admin/stats
  * Returns statistics about the system
  */

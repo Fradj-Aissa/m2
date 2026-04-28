@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import AdminGate from "@/components/admin/AdminGate";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 interface AdminRouteProps {
   children: ReactNode;
@@ -8,12 +11,8 @@ interface AdminRouteProps {
 
 /**
  * AdminRoute - Protects admin routes
- * Only allows access if user is authenticated and has admin role
- *
- * Note: You'll need to:
- * 1. Add a 'role' or 'is_admin' field to the UserData interface in AuthContext.tsx
- * 2. Add a 'role' column to the users table in the database
- * 3. Update backend endpoints to return the role field
+ * Only allows access if user is authenticated and has admin role.
+ * If logged in but not admin, shows the AdminGate for verification.
  */
 const AdminRoute = ({ children }: AdminRouteProps) => {
   const { userData, loading } = useAuth();
@@ -21,7 +20,8 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">جاري التحقق...</p>
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-muted-foreground mr-3">جاري التحقق...</p>
       </div>
     );
   }
@@ -31,16 +31,24 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user is admin (currently checking for a mock condition)
-  // TODO: Once role field is added to UserData, change this check to:
-  // if (userData.role !== "admin") {
-  const isAdmin = localStorage.getItem("isAdmin") === "true"; // Temporary implementation
+  // Check if user is admin
+  const isAdmin = userData.role === "admin";
 
   if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 bg-muted/30">
+          <AdminGate />
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return <>{children}</>;
 };
+
+import { Loader2 } from "lucide-react";
 
 export default AdminRoute;
