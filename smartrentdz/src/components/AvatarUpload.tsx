@@ -63,11 +63,7 @@ const AvatarUpload = ({ currentImage, userId, onUploadSuccess }: AvatarUploadPro
       const formData = new FormData();
       formData.append("image", fileInputRef.current.files[0]);
 
-      const response = await apiPatch(`/users/${userId}/avatar`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const response = await apiPatch(`/users/${userId}/avatar`, formData) as any;
 
       const imageUrl = response.imageUrl || response.user?.profile_image;
 

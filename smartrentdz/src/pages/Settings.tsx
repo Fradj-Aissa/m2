@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Lock, Bell, Trash2, Save, Eye, EyeOff, Loader2 } from "lucide-react";
+import { User, Lock, Bell, Trash2, Save, Eye, EyeOff, Loader2, Camera, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,17 +20,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import AvatarUpload from "@/components/AvatarUpload";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPut, apiPost, apiDelete } from "@/lib/api";
+import { apiPut, apiPost, apiDelete, apiPatch } from "@/lib/api";
 
 const Settings = () => {
   const { toast } = useToast();
   const { currentUser, userData, logout, updateUserAvatar } = useAuth();
   const navigate = useNavigate();
-  // Detect Google-only accounts: they have no password set in the DB.
-  // The backend now allows deletion without a password for these accounts.
+  
+  // Avatar upload state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  // Google-only accounts: they have no password set in the DB.
   const isGoogleOnlyUser = !!(userData && (userData as any).google_id && !(userData as any).has_password);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -71,6 +76,90 @@ const Settings = () => {
     const cleanPhone = phone.replace(/[^\d+]/g, "");
     const algerianPhoneRegex = /^(?:\+213|0)[5-7]\d{8}$/;
     return algerianPhoneRegex.test(cleanPhone);
+  };
+
+  /**
+   * Handle avatar file selection
+   */
+  const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "خطأ",
+        description: "حجم الصورة يجب أن لا يتجاوز 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "خطأ",
+        description: "يجب أن تكون الملف صورة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  /**
+   * Upload avatar to backend
+   */
+  const handleUploadAvatar = async () => {
+    if (!avatarFile || !currentUser) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", avatarFile);
+
+      const response = await apiPatch(`/users/${currentUser.uid}/avatar`, formData);
+      const imageUrl = response.imageUrl || response.user?.profile_image;
+
+      if (imageUrl) {
+        updateUserAvatar(imageUrl);
+        setAvatarPreview(null);
+        setAvatarFile(null);
+        if (avatarInputRef.current) {
+          avatarInputRef.current.value = "";
+        }
+        toast({
+          title: "نجح",
+          description: "تم تحميل الصورة بنجاح",
+        });
+      }
+    } catch (error: any) {
+      console.error("Avatar upload error:", error);
+      toast({
+        title: "خطأ",
+        description: error.response?.data?.error || "حدث خطأ أثناء تحميل الصورة",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  /**
+   * Cancel avatar preview
+   */
+  const handleCancelAvatarPreview = () => {
+    setAvatarPreview(null);
+    setAvatarFile(null);
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
   };
 
   /**
@@ -216,122 +305,221 @@ const Settings = () => {
   const currentAvatar = userData?.profile_image || userData?.avatar || "";
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" dir="rtl">
       <Header />
 
-      <main className="flex-1 bg-muted/30">
-        <div className="container py-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-8">الإعدادات</h1>
+      <main className="flex-1 bg-gradient-to-b from-background to-muted/20">
+        <div className="container py-12">
+          {/* Page Header */}
+          <div className="mb-12">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">الإعدادات</h1>
+            <p className="text-muted-foreground text-lg">إدارة حسابك والتفضيلات الخاصة بك</p>
+          </div>
 
-          <div className="bg-card rounded-xl border">
+          {/* Tabs Card */}
+          <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
             <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0">
+              <TabsList className="w-full justify-start border-b border-border rounded-none h-auto p-0 bg-muted/30">
                 <TabsTrigger
                   value="profile"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-4 px-6"
+                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <User className="h-4 w-4 ml-2" />
+                  <User className="h-5 w-5 ml-3" />
                   الملف الشخصي
                 </TabsTrigger>
                 <TabsTrigger
                   value="security"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-4 px-6"
+                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <Lock className="h-4 w-4 ml-2" />
+                  <Lock className="h-5 w-5 ml-3" />
                   الأمان
                 </TabsTrigger>
                 <TabsTrigger
                   value="notifications"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-4 px-6"
+                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <Bell className="h-4 w-4 ml-2" />
+                  <Bell className="h-5 w-5 ml-3" />
                   الإشعارات
                 </TabsTrigger>
               </TabsList>
 
               {/* Profile Tab */}
-              <TabsContent value="profile" className="p-6">
-                <div className="max-w-2xl space-y-8">
-                  {/* Avatar Section */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-lg">صورة الملف الشخصي</h3>
-                    <AvatarUpload
-                      currentImage={currentAvatar}
-                      userId={currentUser?.uid || ""}
-                      onUploadSuccess={handleAvatarUploadSuccess}
-                    />
+              <TabsContent value="profile" className="p-8 space-y-8">
+                {/* Avatar Section with Premium Style */}
+                <div className="flex flex-col items-center py-12 px-6 bg-gradient-to-b from-primary/5 via-primary/2 to-transparent rounded-2xl border border-primary/10">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                    aria-label="تحميل الصورة الشخصية"
+                  />
+
+                  {/* Avatar Circle with Glowing Border */}
+                  <div className="relative group mb-6">
+                    {/* Outer Glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/30 via-primary/15 to-primary/30 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    
+                    {/* Avatar Container */}
+                    <div className="relative w-40 h-40 rounded-full bg-muted border-4 border-primary/20 group-hover:border-primary/50 flex items-center justify-center overflow-hidden transition-all duration-300 shadow-xl cursor-pointer">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="معاينة الصورة"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : currentAvatar ? (
+                        <img
+                          src={currentAvatar}
+                          alt="صورة المستخدم"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-16 w-16 text-muted-foreground" />
+                      )}
+                      
+                      {isUploadingAvatar && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        </div>
+                      )}
+
+                      {/* Camera Icon Overlay */}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <Camera className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
                   </div>
 
-                  <Separator />
+                  {/* Label */}
+                  <p className="text-center text-foreground font-semibold text-lg mb-6">صورة الملف الشخصي</p>
 
-                  {/* Profile Information Section */}
-                  <div className="space-y-6">
-                    <h3 className="font-semibold text-lg">المعلومات الشخصية</h3>
+                  {/* Buttons */}
+                  <div className="flex gap-3 flex-wrap justify-center">
+                    <Button
+                      onClick={() => avatarInputRef.current?.click()}
+                      variant="outline"
+                      size="lg"
+                      disabled={isUploadingAvatar}
+                      className="gap-2 font-semibold"
+                    >
+                      <Upload className="h-5 w-5" />
+                      اختيار صورة
+                    </Button>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="name">الاسم الكامل</Label>
+                    {avatarPreview && (
+                      <>
+                        <Button
+                          onClick={handleUploadAvatar}
+                          size="lg"
+                          disabled={isUploadingAvatar}
+                          className="gap-2 font-semibold bg-gradient-hero hover:opacity-90"
+                        >
+                          {isUploadingAvatar ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              جاري التحميل...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5" />
+                              تحميل الصورة
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={handleCancelAvatarPreview}
+                          variant="outline"
+                          size="lg"
+                          disabled={isUploadingAvatar}
+                          className="gap-2 font-semibold"
+                        >
+                          <X className="h-5 w-5" />
+                          إلغاء
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Help Text */}
+                  <p className="text-sm text-muted-foreground mt-6 text-center">
+                    الحد الأقصى 5MB • الصيغ المدعومة: JPG, PNG, GIF, WebP
+                  </p>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* Profile Information Section */}
+                <div className="space-y-8">
+                  <h3 className="text-2xl font-bold text-foreground">المعلومات الشخصية</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label htmlFor="name" className="text-base font-semibold">الاسم الكامل</Label>
                       <Input
                         id="name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         placeholder="أدخل اسمك الكامل"
+                        className="h-12 text-base rounded-xl border-border"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <div className="space-y-3">
+                      <Label htmlFor="email" className="text-base font-semibold">البريد الإلكتروني</Label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
                         disabled
-                        className="bg-muted"
+                        className="h-12 text-base bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        لا يمكن تغيير البريد الإلكتروني المرتبط بحسابك
-                      </p>
+                      <p className="text-xs text-muted-foreground">لا يمكن تغيير البريد الإلكتروني المرتبط بحسابك</p>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">رقم الهاتف</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="0XX XXX XXXX"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07
-                      </p>
-                    </div>
-
-                    <Button onClick={handleSaveProfile} disabled={isLoading} className="gap-2">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          جاري الحفظ...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" />
-                          حفظ التغييرات
-                        </>
-                      )}
-                    </Button>
                   </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="phone" className="text-base font-semibold">رقم الهاتف</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="0XX XXX XXXX"
+                      className="h-12 text-base rounded-xl border-border"
+                    />
+                    <p className="text-xs text-muted-foreground">أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07 وتحتوي على 10 أرقام</p>
+                  </div>
+
+                  <Button onClick={handleSaveProfile} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full sm:w-auto bg-gradient-hero hover:opacity-90">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5" />
+                        حفظ التغييرات
+                      </>
+                    )}
+                  </Button>
                 </div>
               </TabsContent>
 
               {/* Security Tab */}
-              <TabsContent value="security" className="p-6">
-                <div className="max-w-2xl space-y-8">
-                  {/* Change Password Section */}
-                  <div className="space-y-6">
-                    <h3 className="font-semibold text-lg">تغيير كلمة المرور</h3>
+              <TabsContent value="security" className="p-8 space-y-8">
+                {/* Change Password Section */}
+                <div className="bg-muted/30 rounded-2xl border border-border p-8 space-y-8">
+                  <h3 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                    <Lock className="h-6 w-6 text-primary" />
+                    تغيير كلمة المرور
+                  </h3>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">كلمة المرور الحالية</Label>
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <Label htmlFor="current-password" className="text-base font-semibold">كلمة المرور الحالية</Label>
                       <div className="relative">
                         <Input
                           id="current-password"
@@ -341,23 +529,24 @@ const Settings = () => {
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, currentPassword: e.target.value })
                           }
+                          className="h-12 text-base pl-12 rounded-xl border-border"
                         />
                         <button
                           type="button"
                           onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {showCurrentPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <EyeOff className="h-5 w-5" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-5 w-5" />
                           )}
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">كلمة المرور الجديدة</Label>
+                    <div className="space-y-3">
+                      <Label htmlFor="new-password" className="text-base font-semibold">كلمة المرور الجديدة</Label>
                       <div className="relative">
                         <Input
                           id="new-password"
@@ -367,23 +556,24 @@ const Settings = () => {
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, newPassword: e.target.value })
                           }
+                          className="h-12 text-base pl-12 rounded-xl border-border"
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {showNewPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <EyeOff className="h-5 w-5" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-5 w-5" />
                           )}
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">تأكيد كلمة المرور</Label>
+                    <div className="space-y-3">
+                      <Label htmlFor="confirm-password" className="text-base font-semibold">تأكيد كلمة المرور</Label>
                       <div className="relative">
                         <Input
                           id="confirm-password"
@@ -393,128 +583,145 @@ const Settings = () => {
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, confirmPassword: e.target.value })
                           }
+                          className="h-12 text-base pl-12 rounded-xl border-border"
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4" />
+                            <EyeOff className="h-5 w-5" />
                           ) : (
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-5 w-5" />
                           )}
                         </button>
                       </div>
                     </div>
-
-                    <Button onClick={handleChangePassword} disabled={isLoading} className="gap-2">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          جاري التحديث...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4" />
-                          تحديث كلمة المرور
-                        </>
-                      )}
-                    </Button>
                   </div>
 
-                  <Separator />
+                  <Button onClick={handleChangePassword} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full bg-gradient-hero hover:opacity-90">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        جاري التحديث...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5" />
+                        تحديث كلمة المرور
+                      </>
+                    )}
+                  </Button>
+                </div>
 
-                  {/* Delete Account Section */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-lg text-destructive">حذف الحساب</h3>
-                    <p className="text-sm text-muted-foreground">
-                      سيتم حذف حسابك وجميع بياناتك بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
-                    </p>
+                <Separator />
 
-                    <DeleteAccountDialog
-                      onConfirm={handleDeleteAccount}
-                      isLoading={isDeleting}
-                      isGoogleUser={isGoogleOnlyUser}
-                    />
-                  </div>
+                {/* Delete Account Section */}
+                <div className="bg-destructive/10 rounded-2xl border border-destructive/20 p-8 space-y-6">
+                  <h3 className="text-2xl font-bold text-destructive flex items-center gap-3">
+                    <Trash2 className="h-6 w-6" />
+                    منطقة الخطر
+                  </h3>
+                  <p className="text-base text-muted-foreground leading-relaxed">
+                    حذف حسابك سيؤدي إلى إزالة جميع بيانات حسابك وإعلاناتك بشكل نهائي. هذا الإجراء لا يمكن التراجع عنه.
+                  </p>
+
+                  <DeleteAccountDialog
+                    onConfirm={handleDeleteAccount}
+                    isLoading={isDeleting}
+                    isGoogleUser={isGoogleOnlyUser}
+                  />
                 </div>
               </TabsContent>
 
               {/* Notifications Tab */}
-              <TabsContent value="notifications" className="p-6">
-                <div className="max-w-md space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">طريقة الإشعارات</h3>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">البريد الإلكتروني</p>
-                        <p className="text-sm text-muted-foreground">استلام الإشعارات عبر البريد</p>
+              <TabsContent value="notifications" className="p-8">
+                <div className="max-w-2xl space-y-8">
+                  {/* Notification Methods */}
+                  <div className="bg-muted/30 rounded-2xl border border-border p-8 space-y-6">
+                    <h3 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                      <Bell className="h-6 w-6 text-primary" />
+                      طريقة الإشعارات
+                    </h3>
+
+                    <div className="space-y-4">
+                      {/* Email Notifications */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 hover:bg-background/80 transition-colors">
+                        <div>
+                          <p className="font-semibold text-foreground">البريد الإلكتروني</p>
+                          <p className="text-sm text-muted-foreground">استقبل الإشعارات عبر بريدك الإلكتروني</p>
+                        </div>
+                        <Switch
+                          checked={notifications.email}
+                          onCheckedChange={(checked) =>
+                            setNotifications({ ...notifications, email: checked })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={notifications.email}
-                        onCheckedChange={(checked) =>
-                          setNotifications({ ...notifications, email: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">الرسائل النصية</p>
-                        <p className="text-sm text-muted-foreground">استلام الإشعارات عبر SMS</p>
+
+                      {/* SMS Notifications */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 hover:bg-background/80 transition-colors">
+                        <div>
+                          <p className="font-semibold text-foreground">الرسائل النصية</p>
+                          <p className="text-sm text-muted-foreground">استقبل الإشعارات عبر رسائل SMS</p>
+                        </div>
+                        <Switch
+                          checked={notifications.sms}
+                          onCheckedChange={(checked) =>
+                            setNotifications({ ...notifications, sms: checked })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={notifications.sms}
-                        onCheckedChange={(checked) =>
-                          setNotifications({ ...notifications, sms: checked })
-                        }
-                      />
                     </div>
                   </div>
 
                   <Separator />
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">نوع الإشعارات</h3>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">شقق جديدة</p>
-                        <p className="text-sm text-muted-foreground">
-                          إشعار عند إضافة شقق جديدة في منطقتك
-                        </p>
+                  {/* Notification Types */}
+                  <div className="bg-muted/30 rounded-2xl border border-border p-8 space-y-6">
+                    <h3 className="text-2xl font-bold text-foreground">نوع الإشعارات</h3>
+
+                    <div className="space-y-4">
+                      {/* New Apartments */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 hover:bg-background/80 transition-colors">
+                        <div>
+                          <p className="font-semibold text-foreground">شقق جديدة</p>
+                          <p className="text-sm text-muted-foreground">إشعار عند إضافة شقق جديدة في المناطق المفضلة</p>
+                        </div>
+                        <Switch
+                          checked={notifications.newApartments}
+                          onCheckedChange={(checked) =>
+                            setNotifications({ ...notifications, newApartments: checked })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={notifications.newApartments}
-                        onCheckedChange={(checked) =>
-                          setNotifications({ ...notifications, newApartments: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">تغييرات الأسعار</p>
-                        <p className="text-sm text-muted-foreground">
-                          إشعار عند تغيير أسعار الشقق المحفوظة
-                        </p>
+
+                      {/* Price Changes */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 hover:bg-background/80 transition-colors">
+                        <div>
+                          <p className="font-semibold text-foreground">تغييرات الأسعار</p>
+                          <p className="text-sm text-muted-foreground">إشعار عند تغيير أسعار الشقق المحفوظة</p>
+                        </div>
+                        <Switch
+                          checked={notifications.priceChanges}
+                          onCheckedChange={(checked) =>
+                            setNotifications({ ...notifications, priceChanges: checked })
+                          }
+                        />
                       </div>
-                      <Switch
-                        checked={notifications.priceChanges}
-                        onCheckedChange={(checked) =>
-                          setNotifications({ ...notifications, priceChanges: checked })
-                        }
-                      />
                     </div>
                   </div>
 
-                  <Button onClick={() => {}} disabled={isLoading} className="gap-2">
+                  <Button onClick={() => {}} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full bg-gradient-hero hover:opacity-90">
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin" />
                         جاري الحفظ...
                       </>
                     ) : (
                       <>
-                        <Save className="h-4 w-4" />
+                        <Save className="h-5 w-5" />
                         حفظ التفضيلات
                       </>
                     )}
@@ -563,29 +770,27 @@ const DeleteAccountDialog = ({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" disabled={isLoading} className="gap-2">
-          <Trash2 className="h-4 w-4" />
-          حذف الحساب
+        <Button variant="destructive" disabled={isLoading} size="lg" className="gap-2 font-semibold w-full">
+          <Trash2 className="h-5 w-5" />
+          حذف الحساب بشكل نهائي
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent className="max-w-md" dir="rtl">
         <AlertDialogHeader>
-          <AlertDialogTitle>هل أنت متأكد من حذف حسابك؟</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogTitle className="text-right text-lg">هل أنت متأكد من حذف حسابك؟</AlertDialogTitle>
+          <AlertDialogDescription className="text-right">
             هذا الإجراء نهائي ولا يمكن التراجع عنه. سيتم حذف جميع بيانات حسابك وشقتك من الخادم.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {isGoogleUser ? (
-          /* Google-only users: no password needed, just show a warning */
-          <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-400">
+          <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-4 text-sm text-amber-700 dark:text-amber-400 text-right">
             حسابك مرتبط بـ Google فقط. لا تحتاج إلى كلمة مرور لتأكيد الحذف.
           </div>
         ) : (
-          /* Email/password users: must enter password */
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="delete-password">تأكيد كلمة المرور</Label>
+            <div className="space-y-3">
+              <Label htmlFor="delete-password" className="font-semibold">تأكيد كلمة المرور</Label>
               <div className="relative">
                 <Input
                   id="delete-password"
@@ -593,16 +798,17 @@ const DeleteAccountDialog = ({
                   placeholder="أدخل كلمة المرور الخاصة بك"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 text-base pl-12 rounded-xl"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-5 w-5" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-5 w-5" />
                   )}
                 </button>
               </div>
@@ -610,8 +816,7 @@ const DeleteAccountDialog = ({
           </div>
         )}
 
-        <AlertDialogFooter className="gap-2">
-          <AlertDialogCancel disabled={isLoading}>إلغاء</AlertDialogCancel>
+        <AlertDialogFooter className="gap-2 flex-row-reverse">
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={!canConfirm || isLoading}
@@ -619,13 +824,14 @@ const DeleteAccountDialog = ({
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin ml-2" />
                 جاري الحذف...
               </>
             ) : (
               "حذف نهائياً"
             )}
           </AlertDialogAction>
+          <AlertDialogCancel disabled={isLoading} className="mr-2">إلغاء</AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
