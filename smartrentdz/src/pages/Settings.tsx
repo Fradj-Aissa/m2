@@ -308,45 +308,45 @@ const Settings = () => {
     <div className="min-h-screen flex flex-col" dir="rtl">
       <Header />
 
-      <main className="flex-1 bg-gradient-to-b from-background to-muted/20">
-        <div className="container py-12">
+      <main className="flex-1 bg-gradient-to-b from-background to-muted/20" dir="rtl">
+        <div className="container py-12" dir="rtl">
           {/* Page Header */}
-          <div className="mb-12">
+          <div className="mb-12 text-right">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">الإعدادات</h1>
             <p className="text-muted-foreground text-lg">إدارة حسابك والتفضيلات الخاصة بك</p>
           </div>
 
           {/* Tabs Card */}
-          <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
-            <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="w-full justify-start border-b border-border rounded-none h-auto p-0 bg-muted/30">
+          <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden" dir="rtl">
+            <Tabs defaultValue="profile" className="w-full" dir="rtl">
+              <TabsList className="w-full justify-start border-b border-border rounded-none h-auto p-0 bg-muted/30" dir="rtl">
                 <TabsTrigger
                   value="profile"
-                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
+                  className="rounded-none border-l-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <User className="h-5 w-5 ml-3" />
+                  <User className="h-5 w-5 mr-3" />
                   الملف الشخصي
                 </TabsTrigger>
                 <TabsTrigger
                   value="security"
-                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
+                  className="rounded-none border-l-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <Lock className="h-5 w-5 ml-3" />
+                  <Lock className="h-5 w-5 mr-3" />
                   الأمان
                 </TabsTrigger>
                 <TabsTrigger
                   value="notifications"
-                  className="rounded-none border-r-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
+                  className="rounded-none border-l-2 border-transparent data-[state=active]:border-primary py-5 px-8 font-semibold text-base"
                 >
-                  <Bell className="h-5 w-5 ml-3" />
+                  <Bell className="h-5 w-5 mr-3" />
                   الإشعارات
                 </TabsTrigger>
               </TabsList>
 
               {/* Profile Tab */}
-              <TabsContent value="profile" className="p-8 space-y-8">
+              <TabsContent value="profile" className="p-8 space-y-8 text-right">
                 {/* Avatar Section with Premium Style */}
-                <div className="flex flex-col items-center py-12 px-6 bg-gradient-to-b from-primary/5 via-primary/2 to-transparent rounded-2xl border border-primary/10">
+                <div className="flex flex-col items-center py-12 px-6 bg-gradient-to-b from-primary/5 via-primary/2 to-transparent rounded-2xl border border-primary/10" dir="rtl">
                   <input
                     ref={avatarInputRef}
                     type="file"
@@ -452,44 +452,44 @@ const Settings = () => {
 
                 {/* Profile Information Section */}
                 <div className="space-y-8">
-                  <h3 className="text-2xl font-bold text-foreground">المعلومات الشخصية</h3>
+                  <h3 className="text-2xl font-bold text-foreground text-right">المعلومات الشخصية</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <Label htmlFor="name" className="text-base font-semibold">الاسم الكامل</Label>
+                      <Label htmlFor="name" className="text-base font-semibold text-right">الاسم الكامل</Label>
                       <Input
                         id="name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         placeholder="أدخل اسمك الكامل"
-                        className="h-12 text-base rounded-xl border-border"
+                        className="h-12 text-base rounded-xl border-border text-right"
                       />
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="email" className="text-base font-semibold">البريد الإلكتروني</Label>
+                      <Label htmlFor="email" className="text-base font-semibold text-right">البريد الإلكتروني</Label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
                         disabled
-                        className="h-12 text-base bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed"
+                        className="h-12 text-base bg-muted/50 border-border rounded-xl text-muted-foreground cursor-not-allowed text-right"
                       />
-                      <p className="text-xs text-muted-foreground">لا يمكن تغيير البريد الإلكتروني المرتبط بحسابك</p>
+                      <p className="text-xs text-muted-foreground text-right">لا يمكن تغيير البريد الإلكتروني المرتبط بحسابك</p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <Label htmlFor="phone" className="text-base font-semibold">رقم الهاتف</Label>
+                    <Label htmlFor="phone" className="text-base font-semibold text-right">رقم الهاتف</Label>
                     <Input
                       id="phone"
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="0XX XXX XXXX"
-                      className="h-12 text-base rounded-xl border-border"
+                      className="h-12 text-base rounded-xl border-border text-right"
                     />
-                    <p className="text-xs text-muted-foreground">أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07 وتحتوي على 10 أرقام</p>
+                    <p className="text-xs text-muted-foreground text-right">أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07 وتحتوي على 10 أرقام</p>
                   </div>
 
                   <Button onClick={handleSaveProfile} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full sm:w-auto bg-gradient-hero hover:opacity-90">
@@ -509,7 +509,7 @@ const Settings = () => {
               </TabsContent>
 
               {/* Security Tab */}
-              <TabsContent value="security" className="p-8 space-y-8">
+              <TabsContent value="security" className="p-8 space-y-8 text-right">
                 {/* Change Password Section */}
                 <div className="bg-muted/30 rounded-2xl border border-border p-8 space-y-8">
                   <h3 className="text-2xl font-bold text-foreground flex items-center gap-3">
@@ -636,7 +636,7 @@ const Settings = () => {
               </TabsContent>
 
               {/* Notifications Tab */}
-              <TabsContent value="notifications" className="p-8">
+              <TabsContent value="notifications" className="p-8 text-right">
                 <div className="max-w-2xl space-y-8">
                   {/* Notification Methods */}
                   <div className="bg-muted/30 rounded-2xl border border-border p-8 space-y-6">

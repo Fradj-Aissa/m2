@@ -35,8 +35,11 @@ const isAdmin = async (req, res, next) => {
     const userRole = user.role || null;
     const userEmail = user.email;
 
+    console.log(`🔍 [Admin Check] UID: ${userId}, Email: ${userEmail}, Role in DB: ${userRole}`);
+
     // Step 2: If already admin, allow access
-    if (userRole === 'admin') {
+    if (userRole && userRole.toLowerCase().trim() === 'admin') {
+      console.log(`✅ Admin access granted for ${userEmail} via DB role`);
       return next();
     }
 

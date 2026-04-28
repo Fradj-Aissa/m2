@@ -53,6 +53,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setAuthInfo: ({ token, user, isAuthenticated }: AuthInfo) => void;
   updateUserAvatar: (imageUrl: string) => void;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -175,6 +176,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   /**
+   * Refresh user data from backend to get latest role/plan
+   */
+  const refreshUserData = async () => {
+    if (!currentUser?.uid) return;
+    
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/users/${currentUser.uid}`);
+      const updatedUser = {
+        ...response.data,
+        current_plan: normalizePlanName(response.data.current_plan),
+      };
+      
+      setCurrentUser(updatedUser);
+      setUserData(updatedUser);
+      localStorage.setItem("userData", JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
+  };
+
+  /**
    * Restore user session from localStorage on app load
    */
   useEffect(() => {
@@ -208,6 +230,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
     setAuthInfo,
     updateUserAvatar,
+    refreshUserData,
   };
 
   return (
