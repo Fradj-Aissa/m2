@@ -141,6 +141,13 @@ async function handleGoogleAuth(req, res) {
           }
         }
       } else {
+        if (mode === "login") {
+          return res.status(404).json({
+            requiresRegistration: true,
+            message: "User not found"
+          });
+        }
+
         const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const insertColumns = ["uid", "firebase_id", "email", "name"];
         const insertValues = [uid, uid, email, name];

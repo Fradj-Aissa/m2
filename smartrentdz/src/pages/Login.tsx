@@ -69,12 +69,25 @@ const Login = () => {
         description: "مرحباً بك في اجرلي",
       });
       navigate(data.requiresCompleteProfile ? "/complete-profile" : "/dashboard");
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Google login error:", error);
+
+      if (error.response?.status === 404 && error.response?.data?.requiresRegistration) {
+        toast({
+          title: "خطأ",
+          description: "هذا الحساب غير مسجل، يرجى إنشاء حساب أولاً",
+          variant: "destructive",
+        });
+        navigate("/register");
+        return;
+      }
+
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "An unexpected error occurred during Google login.";
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "An unexpected error occurred during Google login.";
+      
       toast({
         title: "خطأ في تسجيل الدخول عبر جوجل",
         description: errorMessage,
