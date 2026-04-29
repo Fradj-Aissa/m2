@@ -62,6 +62,7 @@ interface AuthContextType {
   setAuthInfo: ({ token, user, isAuthenticated }: AuthInfo) => void;
   updateUserAvatar: (imageUrl: string) => void;
   refreshUserData: () => Promise<void>;
+  loginWithGoogle: (idToken: string, account_type: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -152,6 +153,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
     } catch (error) {
       console.error("Login error:", error);
+      throw error;
+    }
+  };
+
+  /**
+   * Login user via Google
+   */
+  const loginWithGoogle = async (idToken: string, account_type: string) => {
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/google`, {
+        idToken,
+        mode: "login",
+        account_type,
+      });
+
+      if (response.data.token && response.data.user) {
+        const { token, user } = response.data;
+        const normalizedUser = {
+          ...user,
+          current_plan: normalizePlanName(user.current_plan),
+        };
+        setAuthInfo({ token, user: normalizedUser, isAuthenticated: true });
+        return response.data;
+      } else {
+        throw new Error("Google login failed, please try again.");
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
       throw error;
     }
   };
@@ -271,6 +300,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setAuthInfo,
     updateUserAvatar,
     refreshUserData,
+    loginWithGoogle,
   };
 
   return (

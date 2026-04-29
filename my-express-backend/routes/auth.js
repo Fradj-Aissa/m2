@@ -84,6 +84,8 @@ async function handleGoogleAuth(req, res) {
 
     const googleIdExists = await hasColumn("users", "google_id");
     const roleExists = await hasColumn("users", "role");
+    const accountTypeExists = await hasColumn("users", "account_type");
+    const typeColumnExists = await hasColumn("users", "type");
     // detect which profile image column exists in DB (robust to schema changes)
     let profileCol = null;
     if (await hasColumn("users", "profile_image")) profileCol = "profile_image";
@@ -167,6 +169,16 @@ async function handleGoogleAuth(req, res) {
         if (email === process.env.ADMIN_EMAIL && roleExists) {
           insertColumns.push("role");
           insertValues.push("admin");
+        }
+
+        if (accountTypeExists) {
+          insertColumns.push("account_type");
+          insertValues.push(normalizedAccountType);
+        }
+
+        if (typeColumnExists) {
+          insertColumns.push("type");
+          insertValues.push(legacyTypeValue);
         }
 
         const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(", ");

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, Home } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Home, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
@@ -14,9 +15,10 @@ import { API_BASE_URL } from "@/lib/api";
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login, setAuthInfo } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [accountType, setAccountType] = useState<"renter" | "owner">("renter");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -53,28 +55,20 @@ const Login = () => {
   ) => {
     setIsLoading(true);
     try {
-      const res = await axios.post(
-        `${API_BASE_URL}/auth/google`,
-        {
-          idToken: credentialResponse.credential,
-          mode: "login",
-        }
+      if (!credentialResponse.credential) {
+        throw new Error("No credential received from Google.");
+      }
+
+      const data = await loginWithGoogle(
+        credentialResponse.credential,
+        accountType
       );
 
-      if (res.data.token && res.data.user) {
-        const { token, user } = res.data;
-        setAuthInfo({ token, user, isAuthenticated: true });
-        localStorage.setItem("token", token);
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-        toast({
-          title: "تم تسجيل الدخول بنجاح",
-          description: "مرحباً بك في اجرلي",
-        });
-        navigate(res.data.requiresCompleteProfile ? "/complete-profile" : "/dashboard");
-      } else {
-        throw new Error("Google login failed, please try again.");
-      }
+      toast({
+        title: "تم تسجيل الدخول بنجاح",
+        description: "مرحباً بك في اجرلي",
+      });
+      navigate(data.requiresCompleteProfile ? "/complete-profile" : "/dashboard");
     } catch (error: unknown) {
       console.error("Google login error:", error);
       const errorMessage =
@@ -186,6 +180,35 @@ const Login = () => {
 
           <div className="flex flex-col items-center space-y-4">
             <Separator />
+            <div className="w-full space-y-3 mt-4">
+              <Label>نوع الحساب للتسجيل عبر جوجل</Label>
+              <RadioGroup
+                value={accountType}
+                onValueChange={(value) => setAccountType(value as "renter" | "owner")}
+                className="grid grid-cols-2 gap-4"
+              >
+                <div>
+                  <RadioGroupItem value="renter" id="google-renter" className="peer sr-only" />
+                  <Label
+                    htmlFor="google-renter"
+                    className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                  >
+                    <User className="mb-2 h-6 w-6" />
+                    <span className="font-medium">مستأجر</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem value="owner" id="google-owner" className="peer sr-only" />
+                  <Label
+                    htmlFor="google-owner"
+                    className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                  >
+                    <Building2 className="mb-2 h-6 w-6" />
+                    <span className="font-medium">مؤجّر</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
             <GoogleLogin
               onSuccess={handleGoogleLoginSuccess}
               onError={() => {
