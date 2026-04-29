@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, Home, User, Building2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
@@ -18,7 +17,6 @@ const Login = () => {
   const { login, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [accountType, setAccountType] = useState<"renter" | "owner">("renter");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -61,7 +59,7 @@ const Login = () => {
 
       const data = await loginWithGoogle(
         credentialResponse.credential,
-        accountType
+        undefined
       );
 
       toast({
@@ -193,35 +191,6 @@ const Login = () => {
 
           <div className="flex flex-col items-center space-y-4">
             <Separator />
-            <div className="w-full space-y-3 mt-4">
-              <Label>نوع الحساب للتسجيل عبر جوجل</Label>
-              <RadioGroup
-                value={accountType}
-                onValueChange={(value) => setAccountType(value as "renter" | "owner")}
-                className="grid grid-cols-2 gap-4"
-              >
-                <div>
-                  <RadioGroupItem value="renter" id="google-renter" className="peer sr-only" />
-                  <Label
-                    htmlFor="google-renter"
-                    className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <User className="mb-2 h-6 w-6" />
-                    <span className="font-medium">مستأجر</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="owner" id="google-owner" className="peer sr-only" />
-                  <Label
-                    htmlFor="google-owner"
-                    className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <Building2 className="mb-2 h-6 w-6" />
-                    <span className="font-medium">مؤجّر</span>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
             <GoogleLogin
               onSuccess={handleGoogleLoginSuccess}
               onError={() => {
