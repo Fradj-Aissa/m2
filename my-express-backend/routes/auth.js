@@ -140,8 +140,8 @@ async function handleGoogleAuth(req, res) {
         }
       } else {
         const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const insertColumns = ["uid", "email", "name"];
-        const insertValues = [uid, email, name];
+        const insertColumns = ["uid", "firebase_id", "email", "name"];
+        const insertValues = [uid, uid, email, name];
 
         // include google_id only if column exists
         if (googleIdExists) {
