@@ -152,11 +152,9 @@ async function handleGoogleAuth(req, res) {
         // include profile image column if it exists
         const profileImageExists = !!profileCol;
         if (profileImageExists) {
-          // if Google provided picture use it, otherwise skip inserting the column (allow DB default/null)
-          if (picture) {
-            insertColumns.push(profileCol);
-            insertValues.push(picture);
-          }
+          // Default to null if no picture provided by Google
+          insertColumns.push(profileCol);
+          insertValues.push(picture || null);
         }
 
         // include phone column if exists. If Google doesn't provide phone, use empty string to satisfy non-null schema.
@@ -204,11 +202,15 @@ async function handleGoogleAuth(req, res) {
     const { password: _pw, ...safeUser } = user;
     safeUser.has_password = !!user.password; // true = email/password account, false = Google-only
 
+    // A user requires completion if they don't have a phone number or password
+    const requiresCompleteProfile = !user.phone || !user.password;
+
     res.json({
       message: "Authentication successful",
       user: safeUser,
       token: jwtToken,
       isNewUser,
+      requiresCompleteProfile,
     });
   } catch (err) {
     console.error("Error during Google authentication:", err);
