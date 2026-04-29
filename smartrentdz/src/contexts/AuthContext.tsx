@@ -8,6 +8,13 @@ import {
 import { apiPost } from "@/lib/api";
 import { normalizePlanName } from "@/lib/plans";
 import axios from "axios";
+import { useRef } from "react";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 interface UserData {
   uid: string;
@@ -75,6 +82,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const googleInitialized = useRef(false);
 
   const setAuthInfo = ({ token, user, isAuthenticated }: AuthInfo) => {
     if (isAuthenticated && token && user) {
@@ -220,6 +228,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
 
     restoreSession();
+  }, []);
+
+  /**
+   * Manual Google Identity Initialization as requested
+   * Ensures google.accounts.id.initialize is only called once
+   */
+  useEffect(() => {
+    const initializeGoogle = () => {
+      if (
+        typeof window !== "undefined" &&
+        window.google?.accounts?.id &&
+        !googleInitialized.current
+      ) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || 
+              "591116456511-90vos431d11qqrmmt9nhf7pbqkgckmf2.apps.googleusercontent.com",
+            auto_select: false,
+            itp_support: true,
+          });
+          googleInitialized.current = true;
+          console.log("Google Identity Services initialized successfully");
+        } catch (error) {
+          console.error("Error initializing Google Identity Services:", error);
+        }
+      }
+    };
+
+    // Small delay to ensure the script has loaded if it's dynamic
+    const timer = setTimeout(initializeGoogle, 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   const value: AuthContextType = {
