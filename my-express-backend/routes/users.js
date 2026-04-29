@@ -162,6 +162,8 @@ router.delete("/:uid", async (req, res) => {
  * Requires: image file (multipart/form-data)
  */
 router.patch("/:uid/avatar", authMiddleware, upload.single("image"), async (req, res) => {
+  console.log("Avatar upload request received for UID:", req.params.uid);
+  console.log("req.file:", req.file);
   try {
     const { uid } = req.params;
     const { uid: authUid } = req.user;

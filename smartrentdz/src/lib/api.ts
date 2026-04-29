@@ -58,11 +58,25 @@ export async function apiCall<T>(
 ): Promise<T> {
   try {
     const normalizedUrl = endpoint.replace(/^\/+/, '');
-    const response = await axiosInstance({
+    
+    // If data is FormData, let the browser/axios handle the Content-Type
+    // by removing the default application/json
+    const config: any = {
       method,
       url: normalizedUrl,
       data,
-    });
+      headers: {},
+    };
+
+    if (data instanceof FormData) {
+      // Set to undefined so axios removes the default Content-Type 
+      // and lets the browser set it with the correct boundary
+      config.headers = { 'Content-Type': undefined };
+    } else {
+      config.headers = { 'Content-Type': 'application/json' };
+    }
+
+    const response = await axiosInstance(config);
     return response.data as T;
   } catch (error: any) {
     const errorMessage = error.response?.data?.error || error.message || 'API Error';
