@@ -131,8 +131,8 @@ export async function analyzePropertyImages(
     // 3. INITIALIZE GEMINI CLIENT
     console.log("[Gemini Service] Initializing GoogleGenerativeAI client...");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    console.log("[Gemini Service] ✓ Model initialized: gemini-1.5-flash");
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    console.log("[Gemini Service] ✓ Model initialized: gemini-2.5-flash");
 
     // 4. CONVERT FILES TO BASE64
     console.log("[Gemini Service] Converting images to Base64...");
