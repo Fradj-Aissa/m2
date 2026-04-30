@@ -30,6 +30,10 @@ import {
   generateSmartDescription,
   type GenerateDescriptionParams,
 } from "@/services/aiDescriptionService";
+import {
+  analyzePropertyImages,
+  type PropertyImageAnalysisResult,
+} from "@/services/geminiImageService";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
 
@@ -61,6 +65,7 @@ const AddApartment = () => {
   const { toast } = useToast();
   const { currentUser, userData } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzingImages, setIsAnalyzingImages] = useState(false);
   const [isPredictingPrice, setIsPredictingPrice] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [descriptionStyle, setDescriptionStyle] = useState<"Popular" | "Luxury">(
@@ -92,7 +97,7 @@ const AddApartment = () => {
     lng: null as number | null,
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
       const newFiles = Array.from(files);
@@ -100,6 +105,81 @@ const AddApartment = () => {
       
       setImageFiles((prev) => [...prev, ...newFiles].slice(0, 10));
       setImagePreviews((prev) => [...prev, ...newPreviews].slice(0, 10));
+
+      // Trigger AI image analysis
+      setIsAnalyzingImages(true);
+      toast({
+        title: "جاري التحليل",
+        description: "جاري تحليل الصور وتعبئة البيانات...",
+      });
+
+      try {
+        const analysisResult = await analyzePropertyImages(newFiles);
+
+        // Check overall status
+        if (analysisResult.overall_status === "REJECT") {
+          // Show error toast with rejection reason
+          toast({
+            title: "الصورة مرفوضة",
+            description: analysisResult.rejection_reason || "لا تفي الصورة بمعايير السلامة",
+            variant: "destructive",
+          });
+          // Clear the files that were just added
+          setImageFiles((prev) => prev.slice(0, prev.length - newFiles.length));
+          setImagePreviews((prev) => prev.slice(0, prev.length - newPreviews.length));
+          setIsAnalyzingImages(false);
+          return;
+        }
+
+        // Analysis passed - auto-fill form data
+        if (analysisResult.overall_status === "OK") {
+          const details = analysisResult.inferred_details;
+
+          setFormData((prev) => {
+            const updated = { ...prev };
+
+            // Only fill fields if user hasn't typed anything (empty values)
+            if (!updated.propertyType || updated.propertyType === "Apartment") {
+              updated.propertyType = (details.property_type as PropertyType) || "Apartment";
+            }
+
+            if (!updated.rooms || updated.rooms === "") {
+              updated.rooms = details.room_count?.toString() || "";
+            }
+
+            if (!updated.bathrooms || updated.bathrooms === "1") {
+              updated.bathrooms = details.bathroom_count?.toString() || "1";
+            }
+
+            if (!updated.description || !updated.description.trim()) {
+              updated.description = details.description || "";
+            }
+
+            // Merge amenities without duplicates
+            const currentAmenities = new Set(updated.amenities);
+            const detectedAmenities = details.amenities || [];
+            detectedAmenities.forEach((amenity) => currentAmenities.add(amenity));
+            updated.amenities = Array.from(currentAmenities);
+
+            return updated;
+          });
+
+          toast({
+            title: "تم تحليل الصور بنجاح",
+            description: "تم تعبئة البيانات المفقودة تلقائياً",
+          });
+        }
+      } catch (error: any) {
+        console.error("[AddApartment] Image analysis error:", error);
+        toast({
+          title: "خطأ في التحليل",
+          description:
+            error?.message || "فشل تحليل الصور. يمكنك المتابعة يدوياً",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzingImages(false);
+      }
     }
   };
 
@@ -490,7 +570,12 @@ const AddApartment = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Images Section */}
             <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold mb-4">صور الشقة</h2>
+              <h2 className="font-semibold mb-4 flex items-center justify-between">
+                صور الشقة
+                {isAnalyzingImages && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">جاري التحليل...</span>
+                )}
+              </h2>
               <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                 {imagePreviews.map((img, idx) => (
                   <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
@@ -512,6 +597,7 @@ const AddApartment = () => {
                       type="file"
                       accept="image/*"
                       multiple
+                      disabled={isAnalyzingImages}
                       className="hidden"
                       onChange={handleImageUpload}
                     />
