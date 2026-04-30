@@ -108,16 +108,30 @@ const AddApartment = () => {
 
       // Trigger AI image analysis
       setIsAnalyzingImages(true);
+      const analysisStartTime = Date.now();
+      
       toast({
         title: "جاري التحليل",
-        description: "جاري تحليل الصور وتعبئة البيانات...",
+        description: "جاري تحليل الصور وتعبئة البيانات... (قد يستغرق حتى 30 ثانية)",
       });
+
+      console.log("[AddApartment] Starting image analysis for", newFiles.length, "file(s)");
 
       try {
         const analysisResult = await analyzePropertyImages(newFiles);
+        const analysisDuration = Date.now() - analysisStartTime;
+        console.log(
+          "[AddApartment] Analysis completed successfully in",
+          analysisDuration,
+          "ms"
+        );
 
         // Check overall status
         if (analysisResult.overall_status === "REJECT") {
+          console.warn(
+            "[AddApartment] Image rejected:",
+            analysisResult.rejection_reason
+          );
           // Show error toast with rejection reason
           toast({
             title: "الصورة مرفوضة",
@@ -134,6 +148,7 @@ const AddApartment = () => {
         // Analysis passed - auto-fill form data
         if (analysisResult.overall_status === "OK") {
           const details = analysisResult.inferred_details;
+          console.log("[AddApartment] Analysis result OK, auto-filling form...", details);
 
           setFormData((prev) => {
             const updated = { ...prev };
@@ -166,17 +181,34 @@ const AddApartment = () => {
 
           toast({
             title: "تم تحليل الصور بنجاح",
-            description: "تم تعبئة البيانات المفقودة تلقائياً",
+            description: `تم تعبئة البيانات المفقودة تلقائياً (${analysisDuration}ms)`,
           });
         }
       } catch (error: any) {
-        console.error("[AddApartment] Image analysis error:", error);
+        const analysisDuration = Date.now() - analysisStartTime;
+        console.error(
+          "[AddApartment] Image analysis error after",
+          analysisDuration,
+          "ms:",
+          error
+        );
+
+        // Provide specific error messages
+        let errorMessage = error?.message || "فشل تحليل الصور. يمكنك المتابعة يدوياً";
+        
+        if (error?.message?.includes("timeout")) {
+          errorMessage = "انتهت مهلة الانتظار. تأكد من جودة الاتصال والصور وحاول مرة أخرى";
+        } else if (error?.message?.includes("API") || error?.message?.includes("key")) {
+          errorMessage = "خطأ في الاتصال بخدمة الذكاء الاصطناعي. حاول مرة أخرى لاحقاً";
+        }
+
         toast({
           title: "خطأ في التحليل",
-          description:
-            error?.message || "فشل تحليل الصور. يمكنك المتابعة يدوياً",
+          description: errorMessage,
           variant: "destructive",
         });
+
+        // Don't clear images on error, let user retry or continue manually
       } finally {
         setIsAnalyzingImages(false);
       }
