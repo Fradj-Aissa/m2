@@ -33,6 +33,7 @@ import {
 import {
   analyzePropertyImages,
   type PropertyImageAnalysisResult,
+  AMENITIES_MAPPING,
 } from "@/services/geminiImageService";
 
 const LocationPicker = lazy(() => import("@/components/LocationPicker"));
@@ -112,7 +113,7 @@ const AddApartment = () => {
       
       toast({
         title: "جاري التحليل",
-        description: "جاري تحليل الصور وتعبئة البيانات... (قد يستغرق حتى 30 ثانية)",
+        description: "جاري تحليل الصور وتعبئة البيانات...",
       });
 
       console.log("[AddApartment] Starting image analysis for", newFiles.length, "file(s)");
@@ -170,11 +171,25 @@ const AddApartment = () => {
               updated.description = details.description || "";
             }
 
-            // Merge amenities without duplicates
+            // Merge amenities: translate from English (AI) to Arabic (UI)
             const currentAmenities = new Set(updated.amenities);
             const detectedAmenities = details.amenities || [];
-            detectedAmenities.forEach((amenity) => currentAmenities.add(amenity));
+            
+            console.log("[AddApartment] AI Detected Amenities (English):", detectedAmenities);
+            
+            // Translate each detected English amenity to Arabic
+            detectedAmenities.forEach((englishAmenity) => {
+              const arabicAmenity = AMENITIES_MAPPING[englishAmenity];
+              if (arabicAmenity) {
+                console.log(`[AddApartment] Translating: ${englishAmenity} -> ${arabicAmenity}`);
+                currentAmenities.add(arabicAmenity);
+              } else {
+                console.warn(`[AddApartment] ⚠️ Unknown amenity: ${englishAmenity} (not in mapping)`);
+              }
+            });
+            
             updated.amenities = Array.from(currentAmenities);
+            console.log("[AddApartment] Final merged amenities (Arabic):", updated.amenities);
 
             return updated;
           });

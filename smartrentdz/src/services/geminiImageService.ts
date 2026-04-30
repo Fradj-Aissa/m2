@@ -1,5 +1,21 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Amenity mapping: English (AI detects) -> Arabic (UI displays)
+export const AMENITIES_MAPPING: Record<string, string> = {
+  "WiFi": "واي فاي",
+  "Air Conditioning": "تكييف",
+  "Heating": "تدفئة",
+  "Kitchen Cabinets": "مطبخ مجهز",
+  "Elevator": "مصعد",
+  "Parking": "موقف سيارات",
+  "Balcony": "شرفة",
+  "TV": "تلفزيون",
+  "Refrigerator": "ثلاجة",
+};
+
+// English amenities for AI detection
+export const ENGLISH_AMENITIES = Object.keys(AMENITIES_MAPPING);
+
 export interface ImageFeedback {
   id: number;
   status: "valid" | "rejected";
@@ -11,7 +27,7 @@ export interface InferredDetails {
   property_type: string;
   room_count: number;
   bathroom_count: number;
-  amenities: string[];
+  amenities: string[]; // Will contain English amenity names from AI
   finishing_quality: string;
   description: string;
 }
@@ -180,7 +196,17 @@ export async function analyzePropertyImages(
 - property_type: اختر من [Apartment, Villa, Studio, Office, Garage]
 - room_count: عد الغرف النوم المرئية
 - bathroom_count: عد الحمامات المرئية
-- amenities: ابحث فقط عن [WiFi, Air Conditioning, Heating, Kitchen Cabinets, Elevator, Parking, Balcony, TV, Refrigerator] - أضف فقط إذا كنت متأكداً 90%
+- amenities: ابحث عن المرافق التالية فقط وأرجع ONLY هذه الأسماء الدقيقة بالإنجليزية:
+  - WiFi
+  - Air Conditioning
+  - Heating
+  - Kitchen Cabinets
+  - Elevator
+  - Parking
+  - Balcony
+  - TV
+  - Refrigerator
+  ** ملاحظة: أضف أسماء المرافق بالضبط كما هي مكتوبة أعلاه فقط إذا كنت متأكداً 90% من وجودها **
 - finishing_quality: قيّم الجودة (Normal, Luxury, Super Luxury)
 - description: اكتب وصف عربي جذاب (جملتان) يبرز أفضل المميزات
 
@@ -192,7 +218,7 @@ export async function analyzePropertyImages(
     "property_type": "اسم النوع",
     "room_count": رقم,
     "bathroom_count": رقم,
-    "amenities": ["عنصر1", "عنصر2"],
+    "amenities": ["WiFi", "Air Conditioning", "Parking"],
     "finishing_quality": "Normal/Luxury/Super Luxury",
     "description": "وصف عربي جذاب"
   },
@@ -201,23 +227,19 @@ export async function analyzePropertyImages(
   ]
 }
 
-**ملاحظة مهمة:** أرجع JSON فقط بدون أي نصوص إضافية.`;
+**ملاحظة مهمة:** 
+- أرجع JSON فقط بدون أي نصوص إضافية
+- استخدم أسماء المرافق الدقيقة من القائمة أعلاه فقط
+- لا تستخدم أسماء مختلفة أو ترجمات`;
 
     content.push({
       text: prompt,
     });
     console.log("[Gemini Service] ✓ Prompt added to content");
 
-    // 6. CALL GEMINI API WITH TIMEOUT
-    console.log("[Gemini Service] Calling Gemini API (timeout: 30s)...");
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("API call timeout after 30 seconds")), 30000)
-    );
-
-    const response = await Promise.race([
-      model.generateContent(content),
-      timeoutPromise,
-    ]);
+    // 6. CALL GEMINI API (NO TIMEOUT - ALLOW COMPLETE PROCESSING)
+    console.log("[Gemini Service] Calling Gemini API...");
+    const response = await model.generateContent(content);
 
     console.log("[Gemini Service] ✓ Received response from Gemini API");
 
