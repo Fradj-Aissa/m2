@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -475,11 +476,15 @@ const ApartmentDetail = () => {
                 <div className="bg-card rounded-xl border p-4">
                   <h3 className="font-semibold mb-3">المؤجر</h3>
                   <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-lg font-bold text-primary">
+                    <Avatar className="h-12 w-12 border-2 border-primary/10">
+                      <AvatarImage 
+                        src={apartment.landlord_photo_url || undefined} 
+                        alt={apartment.landlord_name}
+                      />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
                         {apartment.landlord_name?.charAt(0) || 'م'}
-                      </span>
-                    </div>
+                      </AvatarFallback>
+                    </Avatar>
                     <div>
                       <p className="font-medium">{apartment.landlord_name}</p>
                       <p className="text-sm text-muted-foreground">عضو منذ 2024</p>

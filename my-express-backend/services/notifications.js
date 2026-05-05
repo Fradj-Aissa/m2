@@ -13,7 +13,7 @@ const NOTIFICATION_SELECT = `
     n.is_read,
     n.created_at,
     sender.name AS sender_name,
-    sender.avatar AS sender_photo
+    COALESCE(sender.profile_pic, sender.avatar) AS sender_photo
   FROM notifications n
   LEFT JOIN users sender ON sender.uid = n.sender_id
 `;

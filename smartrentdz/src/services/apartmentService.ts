@@ -30,6 +30,7 @@ export interface Apartment {
   landlord_id: string;
   landlord_phone: string;
   landlord_name: string;
+  landlord_photo_url?: string;
   status: 'approved' | 'pending' | 'rejected';
   updated_at?: string;
   verification_docs?: string[];
@@ -67,6 +68,7 @@ function mapApartmentToFrontend(data: any): Apartment {
     landlord_id: data.landlord_id,
     landlord_phone: data.landlord_phone,
     landlord_name: data.landlord_name,
+    landlord_photo_url: data.landlord_photo_url,
     status: data.status,
     updated_at: data.updated_at,
     verification_docs: Array.isArray(data.verification_docs) ? data.verification_docs : (data.verification_docs ? JSON.parse(data.verification_docs) : []),

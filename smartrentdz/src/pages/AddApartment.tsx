@@ -884,8 +884,7 @@ const AddApartment = () => {
               <div className="mt-4">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="w-full bg-gradient-to-r from-green-50 to-blue-50 border-green-200 hover:bg-green-50"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-medium border border-emerald-500 dark:border-emerald-400 dark:bg-gradient-to-r dark:from-emerald-700 dark:to-emerald-800 dark:hover:from-emerald-600 dark:hover:to-emerald-700 shadow-lg dark:shadow-emerald-500/20 transition-all duration-200"
                   onClick={handlePredictPrice}
                   disabled={isPredictingPrice || isLoading}
                 >

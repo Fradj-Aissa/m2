@@ -102,7 +102,11 @@ router.get("/", async (req, res) => {
     } = req.query;
 
     let query = `
-      SELECT a.*, u.current_plan, s.start_date AS subscription_start_date
+      SELECT 
+        a.*,
+        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url,
+        u.current_plan, 
+        s.start_date AS subscription_start_date
       FROM apartments a
       LEFT JOIN users u ON u.uid = a.landlord_id
       LEFT JOIN subscriptions s ON s.id = u.subscription_id
@@ -235,7 +239,13 @@ router.get("/", async (req, res) => {
 router.get("/featured", async (req, res) => {
   try {
     const result = await db.query(
-      "SELECT * FROM apartments WHERE is_active = true AND is_featured = true ORDER BY created_at DESC LIMIT 6"
+      `SELECT 
+        a.*,
+        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url
+      FROM apartments a
+      LEFT JOIN users u ON u.uid = a.landlord_id
+      WHERE a.is_active = true AND a.is_featured = true 
+      ORDER BY a.created_at DESC LIMIT 6`
     );
     // Exclude verification_docs from public API response
     const apartmentsWithoutDocs = result.rows.map(excludeVerificationDocs);
@@ -246,15 +256,21 @@ router.get("/featured", async (req, res) => {
   }
 });
 
-// Get apartment by ID
+// Get apartment by ID (with landlord profile info)
 // GET /api/apartments/:id
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Try both UUID and firebase_id with explicit text cast
+    // Try both UUID and firebase_id with explicit text cast, and join with users table
     const result = await db.query(
-      "SELECT * FROM apartments WHERE id::text = $1 OR firebase_id = $1",
+      `SELECT 
+        a.*,
+        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url,
+        u.name as landlord_name_from_user
+      FROM apartments a
+      LEFT JOIN users u ON u.uid = a.landlord_id
+      WHERE a.id::text = $1 OR a.firebase_id = $1`,
       [id]
     );
 

@@ -31,7 +31,7 @@ export async function requestSubscription(plan: PlanName, receipt: File) {
         "Content-Type": "multipart/form-data",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      withCredentials: true, // Enable credentials for cross-origin requests
+      withCredentials: false,
     }
   );
 
