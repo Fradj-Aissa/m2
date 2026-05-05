@@ -478,7 +478,7 @@ const ApartmentDetail = () => {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12 border-2 border-primary/10">
                       <AvatarImage 
-                        src={apartment.landlord_photo_url || undefined} 
+                        src={apartment.landlord_photo_url || '/placeholder.svg'} 
                         alt={apartment.landlord_name}
                       />
                       <AvatarFallback className="bg-primary/10 text-primary font-bold">

@@ -149,7 +149,7 @@ const NotificationBell = () => {
                       }
                     >
                       <Avatar className="h-10 w-10 border">
-                        <AvatarImage src={notification.sender_photo || undefined} />
+                        <AvatarImage src={notification.sender_photo || '/placeholder.svg'} />
                         <AvatarFallback>
                           {getSenderInitials(notification.sender_name)}
                         </AvatarFallback>

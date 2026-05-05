@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Upload, Camera, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiPatch } from "@/lib/api";
+import { apiPatch, apiPut } from "@/lib/api";
 
 interface AvatarUploadProps {
   currentImage?: string;
@@ -68,6 +68,10 @@ const AvatarUpload = ({ currentImage, userId, onUploadSuccess }: AvatarUploadPro
       const imageUrl = response.imageUrl || response.user?.profile_image;
 
       if (imageUrl) {
+        await apiPut("/users/update-profile-pic", {
+          profile_pic: imageUrl,
+        });
+
         setPreviewUrl(null);
         setIsLoading(false);
         toast({

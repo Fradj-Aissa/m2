@@ -104,7 +104,7 @@ router.get("/", async (req, res) => {
     let query = `
       SELECT 
         a.*,
-        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url,
+        COALESCE(u.profile_pic, u.profile_image, u.avatar) as landlord_photo_url,
         u.current_plan, 
         s.start_date AS subscription_start_date
       FROM apartments a
@@ -241,7 +241,7 @@ router.get("/featured", async (req, res) => {
     const result = await db.query(
       `SELECT 
         a.*,
-        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url
+        COALESCE(u.profile_pic, u.profile_image, u.avatar) as landlord_photo_url
       FROM apartments a
       LEFT JOIN users u ON u.uid = a.landlord_id
       WHERE a.is_active = true AND a.is_featured = true 
@@ -266,7 +266,7 @@ router.get("/:id", async (req, res) => {
     const result = await db.query(
       `SELECT 
         a.*,
-        COALESCE(u.profile_pic, u.avatar) as landlord_photo_url,
+        COALESCE(u.profile_pic, u.profile_image, u.avatar) as landlord_photo_url,
         u.name as landlord_name_from_user
       FROM apartments a
       LEFT JOIN users u ON u.uid = a.landlord_id

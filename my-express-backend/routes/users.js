@@ -62,6 +62,44 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Update profile picture URL in SQL database
+// PUT /api/users/update-profile-pic
+router.put("/update-profile-pic", authMiddleware, async (req, res) => {
+  try {
+    const { profile_pic, profile_image, imageUrl, downloadURL } = req.body || {};
+    const finalImageUrl = profile_pic || profile_image || imageUrl || downloadURL;
+
+    if (!finalImageUrl) {
+      return res.status(400).json({ error: "profile_pic is required" });
+    }
+
+    const { uid } = req.user;
+    const result = await db.query(
+      `UPDATE users
+       SET profile_pic = $1,
+           profile_image = $1,
+           avatar = $1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE uid = $2
+       RETURNING uid, email, name, phone, profile_pic, profile_image, avatar, type, created_at`,
+      [finalImageUrl, uid]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: "Profile picture updated successfully",
+      user: result.rows[0],
+      imageUrl: finalImageUrl,
+    });
+  } catch (err) {
+    console.error("Profile picture update error:", err);
+    res.status(500).json({ error: "Failed to update profile picture" });
+  }
+});
+
 // Update user
 // PUT /api/users/:uid
 router.put("/:uid", async (req, res) => {
