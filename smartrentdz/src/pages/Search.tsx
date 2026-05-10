@@ -741,7 +741,7 @@ const Search = () => {
                     }
 
                     return (
-                      <div key={apartment.id} className="relative">
+                      <div key={apartment.id} id={`apartment-${apartment.id}`} className="relative">
                         <ApartmentCard
                           apartment={apartment}
                           isFavorite={isFavorited}

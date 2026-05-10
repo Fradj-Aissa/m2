@@ -5,14 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const customIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  shadowSize: [41, 41],
-});
+import { propertyMapIcon } from "@/lib/mapIcons";
 
 export interface LocationData {
   lat: number;
@@ -111,7 +104,7 @@ const LocationPicker = ({ lat, lng, onLocationSelect, flyToCoords }: LocationPic
           }
         />
         <MapEventsHandler />
-        {position && <Marker position={position} icon={customIcon} />}
+        {position && <Marker position={position} icon={propertyMapIcon} />}
       </MapContainer>
       
       {!position && !isLoading && (

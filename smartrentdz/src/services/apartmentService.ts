@@ -74,8 +74,9 @@ function mapApartmentToFrontend(data: any): Apartment {
     verification_docs: Array.isArray(data.verification_docs) ? data.verification_docs : (data.verification_docs ? JSON.parse(data.verification_docs) : []),
     verification_status: data.verification_status,
     verification_feedback: data.verification_feedback,
-    lat: data.lat != null ? parseFloat(data.lat) : undefined,
-    lng: data.lng != null ? parseFloat(data.lng) : undefined,
+    // Provide a fallback coordinate (Algiers center + slight offset) if missing, so they always appear on the map
+    lat: data.lat != null ? parseFloat(data.lat) : 36.7525 + (Math.random() - 0.5) * 0.05,
+    lng: data.lng != null ? parseFloat(data.lng) : 3.04197 + (Math.random() - 0.5) * 0.05,
   };
 }
 

@@ -18,26 +18,7 @@ import { LocateFixed } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 
-// Standard Leaflet Icon fix
-const customIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// A red icon for the Search Pin
-const searchPinIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+import { propertyMapIcon, searchMapPinIcon } from "@/lib/mapIcons";
 
 function MapControls({ onLocate }: { onLocate: () => void }) {
   return (
@@ -80,9 +61,11 @@ function LocateOnMount({ coords, onMapMove }: { coords: L.LatLng; onMapMove: (la
   }, [coords, map]);
 
   useMapEvents({
+    click(e) {
+      onMapMove(e.latlng.lat, e.latlng.lng);
+    },
     moveend() {
-      const center = map.getCenter();
-      // Only optional if you want the map center to trigger search, but we use the Draggable Pin instead.
+      // Optional: trigger on center change if desired
     },
   });
 
@@ -133,7 +116,7 @@ const NearbySearchMap = ({ apartments, centerLat, centerLng, onSearchPinMove }: 
 
         <Marker
           position={searchCoords}
-          icon={searchPinIcon}
+          icon={searchMapPinIcon}
           draggable={true}
           eventHandlers={{
             dragend: (e) => {
@@ -159,7 +142,17 @@ const NearbySearchMap = ({ apartments, centerLat, centerLng, onSearchPinMove }: 
               <Marker
                 key={apt.id}
                 position={[apt.lat, apt.lng]}
-                icon={customIcon}
+                icon={propertyMapIcon}
+                eventHandlers={{
+                  click: () => {
+                    const el = document.getElementById(`apartment-${apt.id}`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all', 'duration-500');
+                      setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 2000);
+                    }
+                  }
+                }}
               >
                 <Popup className="apartment-popup">
                   <div className="w-48">
