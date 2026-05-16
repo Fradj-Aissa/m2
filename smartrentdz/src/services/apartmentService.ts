@@ -171,7 +171,7 @@ export const getApartmentById = async (
     return mapApartmentToFrontend(response);
   } catch (error) {
     console.error('Apartment not found:', error);
-    return null;
+    throw error;
   }
 };
 

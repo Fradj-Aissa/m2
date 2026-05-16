@@ -63,7 +63,7 @@ const amenityIcons: Record<string, React.ReactNode> = {
 
 const ApartmentDetail = () => {
   const { id } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const { toast } = useToast();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showPhone, setShowPhone] = useState(false);
@@ -71,6 +71,7 @@ const ApartmentDetail = () => {
   const [similarApartments, setSimilarApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [earlyAccessBlocked, setEarlyAccessBlocked] = useState(false);
 
   useEffect(() => {
     const fetchApartment = async () => {
@@ -102,6 +103,9 @@ const ApartmentDetail = () => {
           }
         }
       } catch (error) {
+        if ((error as any)?.response?.status === 403 && (error as any)?.response?.data?.earlyAccess) {
+          setEarlyAccessBlocked(true);
+        }
         console.error("Error fetching apartment:", error);
       } finally {
         setLoading(false);
@@ -187,6 +191,24 @@ const ApartmentDetail = () => {
   }
 
   if (!apartment) {
+    if (earlyAccessBlocked && !(userData as any)?.is_premium) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className="flex-1 container py-16">
+            <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/20 p-8 text-center">
+              <h1 className="text-3xl font-bold text-emerald-700 dark:text-emerald-400 mb-3">Upgrade to Premium</h1>
+              <p className="text-muted-foreground mb-6">Premium members get 24h early access to new deals!</p>
+              <div className="flex justify-center gap-3">
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white"><Link to="/subscription">عرض باقات بريميوم</Link></Button>
+                <Button asChild variant="outline"><Link to="/search">العودة للبحث</Link></Button>
+              </div>
+            </div>
+          </main>
+          <Footer />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex flex-col">
         <Header />

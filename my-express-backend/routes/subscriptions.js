@@ -1,84 +1,62 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const db = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/isAdmin');
 const { createNotification } = require('../services/notifications');
 const { normalizeStoredPlan } = require('../utils/plans');
+const { receiptUpload } = require('../middleware/premiumUploads');
+const autoCheckPremiumExpiry = require('../middleware/autoCheckPremiumExpiry');
 
 const router = express.Router();
-
-const uploadDir = path.join(__dirname, '..', 'uploads', 'receipts');
-fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname || '') || '.png';
-    cb(null, `${unique}${ext}`);
-  },
-});
-
-const upload = multer({ storage });
-
-const PLAN_PRICING = {
-  Free: 0,
-  Basic: 1800,
-  Pro: 3900,
-};
 
 async function notifyStatusChange({ subscription, status, feedback, adminId }) {
   try {
     const message =
-      status === 'active'
-        ? `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `ملاحظة: ${feedback}` : ''}`
-        : `❌ تم رفض اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `السبب: ${feedback}` : ''}`;
+      status === 'approved'
+        ? `?? ????? ??????? ??????. ${feedback ? `??????: ${feedback}` : ''}`
+        : `?? ??? ??? ???????? ??????. ${feedback ? `?????: ${feedback}` : ''}`;
 
-    await createNotification({
-      recipientId: subscription.user_id,
-      senderId: adminId,
-      type: status === 'active' ? 'approval' : 'system',
-      apartmentId: null,
-      message,
-      link: '/subscription',
-    });
+    await createNotification({ recipientId: subscription.user_id, senderId: adminId, type: 'system', apartmentId: null, message, link: '/subscription' });
   } catch (notifyError) {
     console.error('Notification send failed:', notifyError);
   }
 }
 
-// Request a paid subscription (Basic/Pro)
-router.post('/request', authMiddleware, upload.single('receipt'), async (req, res) => {
+router.post('/upload-receipt', authMiddleware, autoCheckPremiumExpiry, receiptUpload.single('receipt'), async (req, res) => {
   try {
     const userId = req.user?.uid;
-    const { plan_name } = req.body;
-    const normalizedPlan = plan_name || 'Free';
+    const amount = Number(req.body?.amount || 0);
+    if (!userId) return res.status(401).json({ error: 'Invalid user token' });
+    if (!req.file) return res.status(400).json({ error: 'Receipt image is required' });
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Invalid user token' });
-    }
-
-    if (!['Basic', 'Pro'].includes(normalizedPlan)) {
-      return res.status(400).json({ error: 'Only Basic or Pro plans require a request' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'Receipt image is required' });
-    }
-
-    const price = PLAN_PRICING[normalizedPlan] || 0;
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
-
     const insert = await db.query(
-      `INSERT INTO subscriptions (id, user_id, plan_name, price, receipt_image, status, start_date, end_date)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'pending', NULL, NULL)
+      `INSERT INTO subscriptions (id, user_id, receipt_path, receipt_image, amount, price, status, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $2, $3, $3, 'pending', CURRENT_TIMESTAMP)
        RETURNING *`,
-      [userId, normalizedPlan, price, receiptPath]
+      [userId, receiptPath, amount]
     );
 
+    res.status(201).json({ subscription: insert.rows[0] });
+  } catch (error) {
+    console.error('Error creating receipt upload:', error);
+    res.status(500).json({ error: 'Failed to upload receipt' });
+  }
+});
+
+router.post('/request', authMiddleware, autoCheckPremiumExpiry, receiptUpload.single('receipt'), async (req, res) => {
+  try {
+    const userId = req.user?.uid;
+    const amount = Number(req.body?.amount || req.body?.price || 0);
+    if (!userId) return res.status(401).json({ error: 'Invalid user token' });
+    if (!req.file) return res.status(400).json({ error: 'Receipt image is required' });
+    const receiptPath = `/uploads/receipts/${req.file.filename}`;
+    const insert = await db.query(
+      `INSERT INTO subscriptions (id, user_id, receipt_path, receipt_image, amount, price, status, created_at)
+       VALUES (gen_random_uuid(), $1, $2, $2, $3, $3, 'pending', CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [userId, receiptPath, amount]
+    );
     res.status(201).json({ subscription: insert.rows[0] });
   } catch (error) {
     console.error('Error creating subscription request:', error);
@@ -86,19 +64,11 @@ router.post('/request', authMiddleware, upload.single('receipt'), async (req, re
   }
 });
 
-// Current user's subscriptions
-router.get('/mine', authMiddleware, async (req, res) => {
+router.get('/mine', authMiddleware, autoCheckPremiumExpiry, async (req, res) => {
   try {
     const userId = req.user?.uid;
-    if (!userId) {
-      return res.status(401).json({ error: 'Invalid user token' });
-    }
-
-    const result = await db.query(
-      `SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
-      [userId]
-    );
-
+    if (!userId) return res.status(401).json({ error: 'Invalid user token' });
+    const result = await db.query(`SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`, [userId]);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching user subscriptions:', error);
@@ -110,69 +80,36 @@ async function updateStatusHandler(req, res) {
   try {
     const { id } = req.params;
     const { status, feedback = null } = req.body;
-
-    if (!['active', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'status must be active or rejected' });
-    }
+    if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'status must be approved or rejected' });
 
     const subscriptionResult = await db.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
-    if (subscriptionResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Subscription not found' });
-    }
+    if (subscriptionResult.rows.length === 0) return res.status(404).json({ error: 'Subscription not found' });
     const subscription = subscriptionResult.rows[0];
 
-    if (!subscription.user_id || !subscription.plan_name) {
-      return res.status(400).json({ error: 'Invalid subscription data' });
-    }
-
     let updated;
-    if (status === 'active') {
-      const storedPlan = normalizeStoredPlan(subscription.plan_name);
-
+    if (status === 'approved') {
       updated = await db.query(
-        `UPDATE subscriptions
-         SET status = 'active',
-             admin_feedback = $2,
-             start_date = NOW(),
-             end_date = NOW() + INTERVAL '30 days'
-         WHERE id = $1
-         RETURNING *`,
+        `UPDATE subscriptions SET status = 'approved', admin_feedback = $2, start_date = NOW(), end_date = NOW() + INTERVAL '30 days' WHERE id = $1 RETURNING *`,
         [id, feedback]
       );
-
       await db.query(
         `UPDATE users
-         SET current_plan = $2,
-             subscription_id = $1
-         WHERE uid = $3`,
-        [id, storedPlan, subscription.user_id]
-      );
-    } else {
-      updated = await db.query(
-        `UPDATE subscriptions
-         SET status = 'rejected',
-             admin_feedback = $2,
-             start_date = NULL,
-             end_date = NULL
-         WHERE id = $1
-         RETURNING *`,
-        [id, feedback]
-      );
-
-      await db.query(
-        `UPDATE users SET subscription_id = NULL, current_plan = 'free'
+         SET is_premium = TRUE,
+             premium_until = NOW() + INTERVAL '30 days',
+             current_plan = 'Pro',
+             verification_status = CASE WHEN verification_status = 'none' THEN 'pending' ELSE verification_status END,
+             updated_at = CURRENT_TIMESTAMP
          WHERE uid = $1`,
         [subscription.user_id]
       );
+    } else {
+      updated = await db.query(
+        `UPDATE subscriptions SET status = 'rejected', admin_feedback = $2, start_date = NULL, end_date = NULL WHERE id = $1 RETURNING *`,
+        [id, feedback]
+      );
     }
 
-    await notifyStatusChange({
-      subscription,
-      status,
-      feedback,
-      adminId: req.user.uid,
-    });
-
+    await notifyStatusChange({ subscription, status, feedback, adminId: req.user.uid });
     res.json({ subscription: updated.rows[0] });
   } catch (error) {
     console.error('Error updating subscription status:', error);
@@ -180,31 +117,13 @@ async function updateStatusHandler(req, res) {
   }
 }
 
-// Unified admin status update with feedback
 router.patch('/admin/:id/status', authMiddleware, isAdmin, updateStatusHandler);
+router.patch('/admin/:id/approve', authMiddleware, isAdmin, (req, res) => { req.body = { status: 'approved', feedback: null }; return updateStatusHandler(req, res); });
+router.patch('/admin/:id/reject', authMiddleware, isAdmin, (req, res) => { req.body = { status: 'rejected', feedback: null }; return updateStatusHandler(req, res); });
 
-// Backward-compatibility routes delegate to unified handler
-router.patch('/admin/:id/approve', authMiddleware, isAdmin, (req, res) => {
-  req.body = { status: 'active', feedback: null };
-  return updateStatusHandler(req, res);
-});
-
-router.patch('/admin/:id/reject', authMiddleware, isAdmin, (req, res) => {
-  req.body = { status: 'rejected', feedback: null };
-  return updateStatusHandler(req, res);
-});
-
-// Pending list for admin
 router.get('/admin/pending', authMiddleware, isAdmin, async (_req, res) => {
   try {
-    const result = await db.query(
-      `SELECT s.*, u.name AS user_name, u.email AS user_email
-       FROM subscriptions s
-       JOIN users u ON u.uid = s.user_id
-       WHERE s.status = 'pending'
-       ORDER BY s.created_at DESC`
-    );
-
+    const result = await db.query(`SELECT s.*, u.name AS user_name, u.email AS user_email FROM subscriptions s JOIN users u ON u.uid = s.user_id WHERE s.status = 'pending' ORDER BY s.created_at DESC`);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching pending subscriptions:', error);

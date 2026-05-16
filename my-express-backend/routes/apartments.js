@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const multer = require("multer");
 const axios = require("axios");
+const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/authMiddleware");
 const { normalizeDisplayPlan, normalizeStoredPlan } = require("../utils/plans");
 const { createNotification } = require("../services/notifications");
@@ -159,6 +160,9 @@ router.get("/", async (req, res) => {
     if (isFeatured === "true") {
       query += ` AND is_featured = true`;
     }
+    if (!isPremiumViewer) {
+      query += ` AND a.created_at <= NOW() - INTERVAL '24 hours'`;
+    }
 
     // Order: plan priority, then subscription start_date, then creation date
     query += ` ORDER BY
@@ -212,6 +216,9 @@ router.get("/", async (req, res) => {
     if (isFeatured === "true") {
       countQuery += ` AND a.is_featured = true`;
     }
+    if (!isPremiumViewer) {
+      countQuery += ` AND a.created_at <= NOW() - INTERVAL '24 hours'`;
+    }
 
     const countResult = await db.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
@@ -263,6 +270,19 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
     
     // Try both UUID and firebase_id with explicit text cast, and join with users table
+    let isPremiumViewer = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const viewer = await db.query("SELECT is_premium FROM users WHERE uid = $1", [decoded.uid]);
+        isPremiumViewer = !!viewer.rows[0]?.is_premium;
+      } catch (_e) {
+        isPremiumViewer = false;
+      }
+    }
+
     const result = await db.query(
       `SELECT 
         a.*,
@@ -279,6 +299,14 @@ router.get("/:id", async (req, res) => {
     }
 
     const apartment = result.rows[0];
+    const isNewEarlyAccess = new Date(apartment.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000;
+    if (isNewEarlyAccess && !isPremiumViewer) {
+      return res.status(403).json({
+        error: "This listing is in premium early access window",
+        earlyAccess: true,
+        apartmentId: apartment.id,
+      });
+    }
 
     // Increment views counter
     await db.query(
@@ -670,3 +698,15 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+    let isPremiumViewer = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const viewer = await db.query("SELECT is_premium FROM users WHERE uid = $1", [decoded.uid]);
+        isPremiumViewer = !!viewer.rows[0]?.is_premium;
+      } catch (_e) {
+        isPremiumViewer = false;
+      }
+    }

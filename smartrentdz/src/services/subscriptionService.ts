@@ -6,85 +6,56 @@ export type PlanName = "Free" | "Basic" | "Pro";
 export interface Subscription {
   id: string;
   user_id: string;
-  plan_name: PlanName;
-  price: number;
+  plan_name?: PlanName;
+  price?: number;
+  amount?: number;
   receipt_image?: string | null;
+  receipt_path?: string | null;
   admin_feedback?: string | null;
-  status: "pending" | "active" | "expired" | "rejected";
+  status: "pending" | "approved" | "rejected" | "expired";
   start_date?: string | null;
   end_date?: string | null;
   created_at?: string;
 }
 
-export async function requestSubscription(plan: PlanName, receipt: File) {
+export async function requestSubscription(_plan: PlanName, receipt: File, amount = 3900) {
   const form = new FormData();
-  form.append("plan_name", plan);
+  form.append("amount", String(amount));
   form.append("receipt", receipt);
-
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
   const token = localStorage.getItem("token");
-  const response = await axios.post<{ subscription: Subscription }>(
-    `${apiBase}/subscriptions/request`,
-    form,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      withCredentials: false,
-    }
-  );
-
+  const response = await axios.post<{ subscription: Subscription }>(`${apiBase}/subscriptions/upload-receipt`, form, {
+    headers: { "Content-Type": "multipart/form-data", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
   return response.data.subscription;
+}
+
+export async function uploadIdCard(front: File, back: File) {
+  const form = new FormData();
+  form.append("id_front", front);
+  form.append("id_back", back);
+  const apiBase = API_BASE_URL.replace(/\/+$/, "");
+  const token = localStorage.getItem("token");
+  return axios.post(`${apiBase}/users/upload-id`, form, { headers: { "Content-Type": "multipart/form-data", ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
 }
 
 export async function fetchPendingSubscriptions() {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  const response = await axios.get<Subscription[]>(
-    `${apiBase}/subscriptions/admin/pending`,
-    {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    }
-  );
+  const response = await axios.get<Subscription[]>(`${apiBase}/subscriptions/admin/pending`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   return response.data;
 }
 
-export async function updateSubscriptionStatus(id: string, status: "active" | "rejected", feedback?: string | null) {
+export async function updateSubscriptionStatus(id: string, status: "approved" | "rejected", feedback?: string | null) {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  
-  try {
-    // Build the correct URL - apiBase already contains /api
-    const url = `${apiBase}/admin/subscriptions/${id}/status`;
-    console.log("Calling updateSubscriptionStatus with URL:", url, { status, feedback });
-    
-    const response = await axios.patch<{ subscription: Subscription }>(
-      url,
-      { status, feedback },
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }
-    );
-    console.log("Success response:", response.data);
-    return response.data.subscription;
-  } catch (err: any) {
-    console.error("Full Error in updateSubscriptionStatus:", {
-      message: err?.message,
-      response: err?.response?.data,
-      status: err?.response?.status,
-      fullError: err
-    });
-    const message = err?.response?.data?.error || err?.message || "Server error";
-    throw new Error(message);
-  }
+  const response = await axios.patch<{ subscription: Subscription }>(`${apiBase}/admin/subscriptions/${id}/status`, { status, feedback }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  return response.data.subscription;
 }
 
 export async function fetchMySubscriptions() {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  const response = await axios.get<Subscription[]>(`${apiBase}/subscriptions/mine`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const response = await axios.get<Subscription[]>(`${apiBase}/subscriptions/mine`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   return response.data;
 }

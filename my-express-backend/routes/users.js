@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const multer = require("multer");
 const authMiddleware = require("../middleware/authMiddleware");
-const { uploadImageToImgBB, validateAlgerianPhoneNumber } = require("../utils/imageUpload");
+const { uploadImageToImgBB, validateAlgerianPhoneNumber } = require("../utils/imageUpload");`nconst { identityUpload } = require("../middleware/premiumUploads");`nconst autoCheckPremiumExpiry = require("../middleware/autoCheckPremiumExpiry");
 
 // Configure multer for image uploads (in memory)
 const upload = multer({
@@ -290,4 +290,49 @@ router.patch("/:uid/phone", authMiddleware, async (req, res) => {
   }
 });
 
+router.post(
+  "/upload-id",
+  authMiddleware,
+  autoCheckPremiumExpiry,
+  identityUpload.fields([
+    { name: "id_front", maxCount: 1 },
+    { name: "id_back", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const uid = req.user?.uid;
+      if (!uid) return res.status(401).json({ error: "Invalid user token" });
+
+      const front = req.files?.id_front?.[0];
+      const back = req.files?.id_back?.[0];
+      if (!front || !back) {
+        return res.status(400).json({ error: "Both front and back ID images are required" });
+      }
+
+      const idCardPath = JSON.stringify({
+        front: `/uploads/identity/${front.filename}`,
+        back: `/uploads/identity/${back.filename}`,
+      });
+
+      const result = await db.query(
+        `UPDATE users
+         SET id_card_path = $1,
+             verification_status = 'pending',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE uid = $2
+         RETURNING uid, email, name, verification_status, id_card_path, is_premium, premium_until`,
+        [idCardPath, uid]
+      );
+
+      if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
+
+      res.json({ message: "ID card uploaded successfully", user: result.rows[0] });
+    } catch (error) {
+      console.error("ID upload error:", error);
+      res.status(500).json({ error: "Failed to upload ID card" });
+    }
+  }
+);
+
 module.exports = router;
+

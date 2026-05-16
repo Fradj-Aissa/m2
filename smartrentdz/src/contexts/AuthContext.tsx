@@ -25,6 +25,9 @@ interface UserData {
   account_type?: "renter" | "landlord" | "owner";
   current_plan?: string;
   subscription_id?: string | null;
+  is_premium?: boolean;
+  premium_until?: string | null;
+  verification_status?: "none" | "pending" | "verified" | "rejected";
   profile_image?: string | null;
   avatar?: string | null;
   image?: string | null;

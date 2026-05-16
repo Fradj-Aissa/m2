@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Apartment } from "@/services/apartmentService";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ApartmentCardProps {
   apartment: Apartment;
@@ -12,6 +13,10 @@ interface ApartmentCardProps {
 }
 
 const ApartmentCard = ({ apartment, onFavoriteClick, isFavorite = false }: ApartmentCardProps) => {
+  const { userData } = useAuth();
+  const isPremium = !!(userData as any)?.is_premium;
+  const isNewListing = new Date(apartment.created_at).getTime() > Date.now() - 24 * 60 * 60 * 1000;
+  const showPremiumOverlay = !isPremium && isNewListing;
   return (
     <Link
       to={`/apartment/${apartment.id}`}
@@ -22,8 +27,16 @@ const ApartmentCard = ({ apartment, onFavoriteClick, isFavorite = false }: Apart
         <img
           src={apartment.images[0]}
           alt={apartment.title}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className={cn("h-full w-full object-cover transition-transform duration-500 group-hover:scale-110", showPremiumOverlay && "blur-[2px]")}
         />
+        {showPremiumOverlay && (
+          <div
+            className="absolute inset-0 bg-emerald-950/35 flex items-center justify-center"
+            title="Premium members get 24h early access to new deals!"
+          >
+            <Badge className="bg-emerald-600 text-white border-0">Premium Only</Badge>
+          </div>
+        )}
         
         {/* Featured Badge */}
         {apartment.is_featured && (

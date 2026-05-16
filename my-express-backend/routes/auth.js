@@ -44,6 +44,17 @@ function normalizeUserPlan(user) {
   };
 }
 
+async function getPremiumColumns() {
+  const isPremiumExists = await hasColumn("users", "is_premium");
+  const premiumUntilExists = await hasColumn("users", "premium_until");
+  const verificationStatusExists = await hasColumn("users", "verification_status");
+  return {
+    isPremiumExists,
+    premiumUntilExists,
+    verificationStatusExists,
+  };
+}
+
 async function handleGoogleAuth(req, res) {
   try {
     console.log("Google auth env:", {
@@ -211,6 +222,19 @@ async function handleGoogleAuth(req, res) {
       return res.status(500).json({ error: "Failed to process Google user", details: innerErr.message });
     }
 
+    const { isPremiumExists, premiumUntilExists, verificationStatusExists } = await getPremiumColumns();
+    const premiumSelectParts = [
+      isPremiumExists ? "is_premium" : "FALSE as is_premium",
+      premiumUntilExists ? "premium_until" : "NULL as premium_until",
+      verificationStatusExists ? "verification_status" : "'none' as verification_status",
+    ];
+
+    const normalizedFetch = await db.query(
+      `SELECT *, ${premiumSelectParts.join(", ")} FROM users WHERE uid = $1 LIMIT 1`,
+      [user.uid]
+    );
+    const finalUser = normalizedFetch.rows[0] || user;
+
     const jwtToken = jwt.sign(
       { uid: user.uid, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -218,11 +242,11 @@ async function handleGoogleAuth(req, res) {
     );
 
     // Strip sensitive fields and add a safe has_password flag
-    const { password: _pw, ...safeUser } = user;
-    safeUser.has_password = !!user.password; // true = email/password account, false = Google-only
+    const { password: _pw, ...safeUser } = finalUser;
+    safeUser.has_password = !!finalUser.password; // true = email/password account, false = Google-only
 
     // A user requires completion if they don't have a phone number or password
-    const requiresCompleteProfile = !user.phone || !user.password;
+    const requiresCompleteProfile = !finalUser.phone || !finalUser.password;
 
     res.json({
       message: "Authentication successful",
@@ -302,6 +326,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
     const accountTypeExists = await hasColumn("users", "account_type");
     const typeColumnExists = await hasColumn("users", "type");
     const roleExists = await hasColumn("users", "role");
+    const { isPremiumExists, premiumUntilExists, verificationStatusExists } = await getPremiumColumns();
     const insertColumns = ["uid", "firebase_id", "email", "password", "name", "phone"];
     const insertValues = [uid, uid, email, hashedPassword, name, phone];
 
@@ -336,6 +361,9 @@ router.post("/register", upload.single("image"), async (req, res) => {
       ...(typeColumnExists ? ["type"] : []),
       ...(accountTypeExists ? ["account_type"] : []),
       ...(roleExists ? ["role"] : []),
+      ...(isPremiumExists ? ["is_premium"] : []),
+      ...(premiumUntilExists ? ["premium_until"] : []),
+      ...(verificationStatusExists ? ["verification_status"] : []),
       "created_at",
     ].join(", ");
 
@@ -388,6 +416,7 @@ router.post("/login", async (req, res) => {
     const currentPlanExists = await hasColumn("users", "current_plan");
     const subscriptionIdExists = await hasColumn("users", "subscription_id");
     const roleExists = await hasColumn("users", "role");
+    const { isPremiumExists, premiumUntilExists, verificationStatusExists } = await getPremiumColumns();
     const selectColumns = [
       "uid",
       "email",
@@ -400,6 +429,9 @@ router.post("/login", async (req, res) => {
       ...(currentPlanExists ? ["current_plan"] : []),
       ...(subscriptionIdExists ? ["subscription_id"] : []),
       ...(roleExists ? ["role"] : []),
+      ...(isPremiumExists ? ["is_premium"] : []),
+      ...(premiumUntilExists ? ["premium_until"] : []),
+      ...(verificationStatusExists ? ["verification_status"] : []),
     ].join(", ");
 
     // Find user by email
@@ -521,6 +553,7 @@ router.post("/complete-profile", authMiddleware, async (req, res) => {
     }
 
     const roleExists = await hasColumn("users", "role");
+    const { isPremiumExists, premiumUntilExists, verificationStatusExists } = await getPremiumColumns();
     const returningColumns = [
       "uid",
       "email",
@@ -529,6 +562,9 @@ router.post("/complete-profile", authMiddleware, async (req, res) => {
       "type",
       "account_type",
       ...(roleExists ? ["role"] : []),
+      ...(isPremiumExists ? ["is_premium"] : []),
+      ...(premiumUntilExists ? ["premium_until"] : []),
+      ...(verificationStatusExists ? ["verification_status"] : []),
       "created_at",
     ].join(", ");
 
