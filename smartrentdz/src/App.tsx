@@ -49,7 +49,14 @@ const App = () => (
               <Route path="/search" element={<Search />} />
               <Route path="/apartment/:id" element={<ApartmentDetail />} />
               <Route path="/favorites" element={<Favorites />} />
-              <Route path="/subscription" element={<SubscriptionPage />} />
+              <Route
+                path="/subscription"
+                element={
+                  <ProtectedRoute>
+                    <SubscriptionPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/welcome" element={<Welcome />} />

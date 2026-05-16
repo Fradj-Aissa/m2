@@ -9,6 +9,76 @@ const autoCheckPremiumExpiry = require('../middleware/autoCheckPremiumExpiry');
 
 const router = express.Router();
 
+async function hasColumn(table, column) {
+  const result = await db.query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1
+       AND column_name = $2
+     LIMIT 1`,
+    [table, column]
+  );
+  return result.rows.length > 0;
+}
+
+async function createSubscriptionRequest({ userId, receiptPath, amount }) {
+  const hasReceiptPath = await hasColumn('subscriptions', 'receipt_path');
+  const hasAmount = await hasColumn('subscriptions', 'amount');
+  const hasPrice = await hasColumn('subscriptions', 'price');
+  const hasPlanName = await hasColumn('subscriptions', 'plan_name');
+  const hasReceiptImage = await hasColumn('subscriptions', 'receipt_image');
+  const hasStartDate = await hasColumn('subscriptions', 'start_date');
+  const hasEndDate = await hasColumn('subscriptions', 'end_date');
+
+  const columns = ['id', 'user_id', 'status', 'created_at'];
+  const values = ['gen_random_uuid()', '$1', "'pending'", 'CURRENT_TIMESTAMP'];
+  const params = [userId];
+  let i = 2;
+
+  if (hasReceiptPath) {
+    columns.push('receipt_path');
+    values.push(`$${i}`);
+    params.push(receiptPath);
+    i++;
+  }
+  if (hasReceiptImage) {
+    columns.push('receipt_image');
+    values.push(`$${i}`);
+    params.push(receiptPath);
+    i++;
+  }
+  if (hasAmount) {
+    columns.push('amount');
+    values.push(`$${i}`);
+    params.push(amount);
+    i++;
+  }
+  if (hasPrice) {
+    columns.push('price');
+    values.push(`$${i}`);
+    params.push(amount);
+    i++;
+  }
+  if (hasPlanName) {
+    columns.push('plan_name');
+    values.push(`$${i}`);
+    params.push('Pro');
+    i++;
+  }
+  if (hasStartDate) {
+    columns.push('start_date');
+    values.push('NULL');
+  }
+  if (hasEndDate) {
+    columns.push('end_date');
+    values.push('NULL');
+  }
+
+  const sql = `INSERT INTO subscriptions (${columns.join(', ')}) VALUES (${values.join(', ')}) RETURNING *`;
+  return db.query(sql, params);
+}
+
 async function notifyStatusChange({ subscription, status, feedback, adminId }) {
   try {
     const message =
@@ -30,12 +100,7 @@ router.post('/upload-receipt', authMiddleware, autoCheckPremiumExpiry, receiptUp
     if (!req.file) return res.status(400).json({ error: 'Receipt image is required' });
 
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
-    const insert = await db.query(
-      `INSERT INTO subscriptions (id, user_id, receipt_path, receipt_image, amount, price, status, created_at)
-       VALUES (gen_random_uuid(), $1, $2, $2, $3, $3, 'pending', CURRENT_TIMESTAMP)
-       RETURNING *`,
-      [userId, receiptPath, amount]
-    );
+    const insert = await createSubscriptionRequest({ userId, receiptPath, amount });
 
     res.status(201).json({ subscription: insert.rows[0] });
   } catch (error) {
@@ -51,12 +116,7 @@ router.post('/request', authMiddleware, autoCheckPremiumExpiry, receiptUpload.si
     if (!userId) return res.status(401).json({ error: 'Invalid user token' });
     if (!req.file) return res.status(400).json({ error: 'Receipt image is required' });
     const receiptPath = `/uploads/receipts/${req.file.filename}`;
-    const insert = await db.query(
-      `INSERT INTO subscriptions (id, user_id, receipt_path, receipt_image, amount, price, status, created_at)
-       VALUES (gen_random_uuid(), $1, $2, $2, $3, $3, 'pending', CURRENT_TIMESTAMP)
-       RETURNING *`,
-      [userId, receiptPath, amount]
-    );
+    const insert = await createSubscriptionRequest({ userId, receiptPath, amount });
     res.status(201).json({ subscription: insert.rows[0] });
   } catch (error) {
     console.error('Error creating subscription request:', error);
