@@ -48,6 +48,9 @@ module.exports.up = async (client) => {
         WHERE table_name='subscriptions' AND column_name='status'
       ) THEN
         ALTER TABLE subscriptions
+        ALTER COLUMN status DROP DEFAULT;
+
+        ALTER TABLE subscriptions
         ALTER COLUMN status TYPE manual_subscription_status
         USING (
           CASE

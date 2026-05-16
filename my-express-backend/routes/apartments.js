@@ -101,6 +101,18 @@ router.get("/", async (req, res) => {
       limit = 50,
       offset = 0,
     } = req.query;
+    let isPremiumViewer = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const viewer = await db.query("SELECT is_premium FROM users WHERE uid = $1", [decoded.uid]);
+        isPremiumViewer = !!viewer.rows[0]?.is_premium;
+      } catch (_e) {
+        isPremiumViewer = false;
+      }
+    }
 
     let query = `
       SELECT 
@@ -698,15 +710,3 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-    let isPremiumViewer = false;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      try {
-        const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const viewer = await db.query("SELECT is_premium FROM users WHERE uid = $1", [decoded.uid]);
-        isPremiumViewer = !!viewer.rows[0]?.is_premium;
-      } catch (_e) {
-        isPremiumViewer = false;
-      }
-    }

@@ -3,7 +3,9 @@ const router = express.Router();
 const db = require("../db");
 const multer = require("multer");
 const authMiddleware = require("../middleware/authMiddleware");
-const { uploadImageToImgBB, validateAlgerianPhoneNumber } = require("../utils/imageUpload");`nconst { identityUpload } = require("../middleware/premiumUploads");`nconst autoCheckPremiumExpiry = require("../middleware/autoCheckPremiumExpiry");
+const { uploadImageToImgBB, validateAlgerianPhoneNumber } = require("../utils/imageUpload");
+const { identityUpload } = require("../middleware/premiumUploads");
+const autoCheckPremiumExpiry = require("../middleware/autoCheckPremiumExpiry");
 
 // Configure multer for image uploads (in memory)
 const upload = multer({
