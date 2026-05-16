@@ -29,6 +29,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProperties from "./pages/admin/AdminProperties";
 import AdminReviews from "./pages/admin/AdminReviews";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
+import AdminOwnerVerifications from "./pages/admin/AdminOwnerVerifications";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -141,6 +142,14 @@ const App = () => (
                 element={
                   <AdminRoute>
                     <AdminSubscriptions />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/verifications"
+                element={
+                  <AdminRoute>
+                    <AdminOwnerVerifications />
                   </AdminRoute>
                 }
               />

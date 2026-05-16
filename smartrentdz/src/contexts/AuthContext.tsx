@@ -27,7 +27,8 @@ interface UserData {
   subscription_id?: string | null;
   is_premium?: boolean;
   premium_until?: string | null;
-  verification_status?: "none" | "pending" | "verified" | "rejected";
+  verification_status?: "unverified" | "pending" | "verified" | "rejected";
+  rejection_reason?: string | null;
   profile_image?: string | null;
   avatar?: string | null;
   image?: string | null;

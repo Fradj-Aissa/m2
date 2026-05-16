@@ -24,11 +24,13 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -508,7 +510,21 @@ const ApartmentDetail = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{apartment.landlord_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{apartment.landlord_name}</p>
+                        {apartment.landlord_verification_status === "verified" ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-100 text-sky-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+                                <ShieldCheck className="h-4 w-4" />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              هوية المالك موثقة من قبل إدارة SmartRentDZ
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
                       <p className="text-sm text-muted-foreground">عضو منذ 2024</p>
                     </div>
                   </div>

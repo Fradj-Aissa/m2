@@ -27,11 +27,10 @@ const SubscriptionPage = () => {
   const [loadingStatus, setLoadingStatus] = useState(false);
 
   const isPremium = !!userData?.is_premium;
-  const isPending = userData?.verification_status === "pending";
   const requestPending = latestRequest?.status === "pending";
   const requestApproved = latestRequest?.status === "approved";
   const requestRejected = latestRequest?.status === "rejected";
-  const uploadLocked = isPending || requestPending || requestApproved;
+  const uploadLocked = requestPending || requestApproved;
 
   const remainingDays = useMemo(() => {
     if (!userData?.premium_until) return 0;

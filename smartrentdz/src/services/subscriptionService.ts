@@ -30,10 +30,14 @@ export async function requestSubscription(_plan: PlanName, receipt: File, amount
   return response.data.subscription;
 }
 
-export async function uploadIdCard(front: File, back: File) {
+export async function uploadIdCard(front: File, back?: File | null) {
   const form = new FormData();
-  form.append("id_front", front);
-  form.append("id_back", back);
+  if (back) {
+    form.append("id_front", front);
+    form.append("id_back", back);
+  } else {
+    form.append("id_card", front);
+  }
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
   const token = localStorage.getItem("token");
   return axios.post(`${apiBase}/users/upload-id`, form, { headers: { "Content-Type": "multipart/form-data", ...(token ? { Authorization: `Bearer ${token}` } : {}) } });

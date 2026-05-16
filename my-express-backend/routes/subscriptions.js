@@ -157,7 +157,6 @@ async function updateStatusHandler(req, res) {
          SET is_premium = TRUE,
              premium_until = NOW() + INTERVAL '30 days',
              current_plan = 'Pro',
-             verification_status = CASE WHEN verification_status = 'none' THEN 'pending' ELSE verification_status END,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = $1`,
         [subscription.user_id]

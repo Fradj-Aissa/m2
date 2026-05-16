@@ -226,7 +226,7 @@ async function handleGoogleAuth(req, res) {
     const premiumSelectParts = [
       isPremiumExists ? "is_premium" : "FALSE as is_premium",
       premiumUntilExists ? "premium_until" : "NULL as premium_until",
-      verificationStatusExists ? "verification_status" : "'none' as verification_status",
+      verificationStatusExists ? "verification_status" : "'unverified' as verification_status",
     ];
 
     const normalizedFetch = await db.query(
@@ -363,7 +363,7 @@ router.post("/register", upload.single("image"), async (req, res) => {
       ...(roleExists ? ["role"] : []),
       ...(isPremiumExists ? ["is_premium"] : []),
       ...(premiumUntilExists ? ["premium_until"] : []),
-      ...(verificationStatusExists ? ["verification_status"] : []),
+      ...(verificationStatusExists ? ["verification_status", "rejection_reason"] : []),
       "created_at",
     ].join(", ");
 
@@ -431,7 +431,7 @@ router.post("/login", async (req, res) => {
       ...(roleExists ? ["role"] : []),
       ...(isPremiumExists ? ["is_premium"] : []),
       ...(premiumUntilExists ? ["premium_until"] : []),
-      ...(verificationStatusExists ? ["verification_status"] : []),
+      ...(verificationStatusExists ? ["verification_status", "rejection_reason"] : []),
     ].join(", ");
 
     // Find user by email
@@ -564,7 +564,7 @@ router.post("/complete-profile", authMiddleware, async (req, res) => {
       ...(roleExists ? ["role"] : []),
       ...(isPremiumExists ? ["is_premium"] : []),
       ...(premiumUntilExists ? ["premium_until"] : []),
-      ...(verificationStatusExists ? ["verification_status"] : []),
+      ...(verificationStatusExists ? ["verification_status", "rejection_reason"] : []),
       "created_at",
     ].join(", ");
 

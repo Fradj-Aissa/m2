@@ -6,6 +6,19 @@ const isAdmin = require('../middleware/isAdmin');
 const { createNotification } = require('../services/notifications');
 const { normalizeStoredPlan } = require('../utils/plans');
 
+async function hasColumn(table, column) {
+  const result = await db.query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = $1
+       AND column_name = $2
+     LIMIT 1`,
+    [table, column]
+  );
+  return result.rows.length > 0;
+}
+
 /**
  * POST /api/admin/secure-verify
  * Secure admin promotion route
@@ -199,6 +212,92 @@ router.get('/users', authMiddleware, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+router.get('/verifications/pending', authMiddleware, isAdmin, async (_req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT uid, name, email, phone, type, account_type, id_card_path, verification_status, rejection_reason, created_at
+       FROM users
+       WHERE verification_status = 'pending'
+         AND (type = 'landlord' OR account_type = 'owner')
+       ORDER BY created_at DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching pending owner verifications:', error);
+    res.status(500).json({ error: 'Failed to fetch pending owner verifications' });
+  }
+});
+
+router.put('/verifications/:uid/status', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { status, reason = null } = req.body;
+
+    if (!['verified', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'status must be verified or rejected' });
+    }
+
+    if (status === 'rejected' && !reason) {
+      return res.status(400).json({ error: 'reason is required when rejecting verification' });
+    }
+
+    const hasRejectionReason = await hasColumn('users', 'rejection_reason');
+    const userResult = await db.query(
+      `SELECT uid, name, email, verification_status, id_card_path
+       FROM users
+       WHERE uid = $1`,
+      [uid]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updateQuery = hasRejectionReason
+      ? `UPDATE users
+         SET verification_status = $1,
+             rejection_reason = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE uid = $3
+         RETURNING uid, name, email, verification_status, rejection_reason, id_card_path`
+      : `UPDATE users
+         SET verification_status = $1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE uid = $2
+         RETURNING uid, name, email, verification_status, id_card_path`;
+
+    const updateParams = hasRejectionReason
+      ? [status, status === 'verified' ? null : reason, uid]
+      : [status, uid];
+
+    const updateResult = await db.query(updateQuery, updateParams);
+    const updatedUser = updateResult.rows[0];
+
+    const message =
+      status === 'verified'
+        ? 'تهانينا! تم التحقق من هويتك بنجاح. حسابك الآن يحمل شارة التوثيق، مما يعزز ثقة المستأجرين في عقاراتك المعروضة.'
+        : `نعتذر منك، لم يتم قبول توثيق الهوية. السبب: ${reason}. يرجى مراجعة قسم الإعدادات لإعادة رفع وثيقة واضحة.`;
+
+    await createNotification({
+      recipientId: uid,
+      senderId: req.user.uid,
+      type: status === 'verified' ? 'approval' : 'system',
+      apartmentId: null,
+      message,
+      link: '/settings',
+    });
+
+    res.json({
+      message: `Verification ${status} successfully`,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Error updating owner verification status:', error);
+    res.status(500).json({ error: 'Failed to update owner verification status' });
   }
 });
 

@@ -6,6 +6,7 @@ import {
   Building2,
   MessageSquare,
   CreditCard,
+  ShieldCheck,
   Settings,
   Menu,
   X,
@@ -49,6 +50,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       label: "الاشتراكات",
       icon: CreditCard,
       path: "/admin/subscriptions",
+    },
+    {
+      label: "توثيق الملاك",
+      icon: ShieldCheck,
+      path: "/admin/verifications",
     },
     {
       label: "الإعدادات",

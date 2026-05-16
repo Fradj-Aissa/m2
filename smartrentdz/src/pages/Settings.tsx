@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Lock, Bell, Trash2, Save, Eye, EyeOff, Loader2, Camera, Upload, X } from "lucide-react";
+import { User, Lock, Bell, Trash2, Save, Eye, EyeOff, Loader2, Camera, Upload, UploadCloud, X, ShieldCheck, Clock3, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +24,11 @@ import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiPut, apiPost, apiDelete, apiPatch } from "@/lib/api";
+import { uploadIdCard } from "@/services/subscriptionService";
 
 const Settings = () => {
   const { toast } = useToast();
-  const { currentUser, userData, logout, updateUserAvatar } = useAuth();
+  const { currentUser, userData, logout, updateUserAvatar, refreshUserData } = useAuth();
   const navigate = useNavigate();
   
   // Avatar upload state
@@ -34,6 +36,8 @@ const Settings = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [idCardFile, setIdCardFile] = useState<File | null>(null);
+  const [isUploadingIdCard, setIsUploadingIdCard] = useState(false);
   
   // Google-only accounts: they have no password set in the DB.
   const isGoogleOnlyUser = !!(userData && (userData as any).google_id && !(userData as any).has_password);
@@ -58,6 +62,13 @@ const Settings = () => {
     newApartments: true,
     priceChanges: true,
   });
+
+  const isOwnerAccount =
+    userData?.type === "landlord" ||
+    userData?.account_type === "owner" ||
+    userData?.account_type === "landlord";
+
+  const verificationStatus = userData?.verification_status || "unverified";
 
   useEffect(() => {
     if (userData) {
@@ -159,6 +170,37 @@ const Settings = () => {
     setAvatarFile(null);
     if (avatarInputRef.current) {
       avatarInputRef.current.value = "";
+    }
+  };
+
+  const handleUploadIdCard = async () => {
+    if (!idCardFile) {
+      toast({
+        title: "اختر صورة الهوية أولًا",
+        description: "ارفع صورة واضحة لبطاقة الهوية قبل إرسال الطلب.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingIdCard(true);
+    try {
+      await uploadIdCard(idCardFile);
+      await refreshUserData();
+      setIdCardFile(null);
+      toast({
+        title: "تم إرسال وثيقة الهوية",
+        description: "طلب التوثيق الآن قيد المراجعة من إدارة SmartRentDZ.",
+      });
+    } catch (error: any) {
+      console.error("ID upload error:", error);
+      toast({
+        title: "فشل رفع وثيقة الهوية",
+        description: error?.response?.data?.error || "تعذر إرسال الوثيقة الآن.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingIdCard(false);
     }
   };
 
@@ -491,6 +533,94 @@ const Settings = () => {
                     />
                     <p className="text-xs text-muted-foreground text-right">أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07 وتحتوي على 10 أرقام</p>
                   </div>
+
+                  {isOwnerAccount ? (
+                    <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-background to-sky-50/70 dark:border-emerald-950/60 dark:from-emerald-950/20 dark:to-slate-950">
+                      <CardHeader className="space-y-2">
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                          <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                          توثيق الهوية
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          توثيق هوية المالك يضيف شارة ثقة لملفك الشخصي ويطمئن المستأجرين عند تصفح عقاراتك.
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {verificationStatus === "verified" ? (
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                            <div className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400">
+                              <ShieldCheck className="h-5 w-5" />
+                              حساب موثق
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              شارة التوثيق تظهر الآن بجانب اسمك في تفاصيل العقارات لزيادة ثقة المستأجرين.
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {verificationStatus === "pending" ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                            <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
+                              <Clock3 className="h-5 w-5" />
+                              الطلب قيد المراجعة
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              استلمنا وثيقتك، وسيتم إشعارك فور انتهاء المراجعة من الإدارة.
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {verificationStatus === "rejected" ? (
+                          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+                            <div className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400">
+                              <AlertTriangle className="h-5 w-5" />
+                              تم رفض التوثيق السابق
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              السبب: {userData?.rejection_reason || "لم يتم توضيح السبب من الإدارة."}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              يمكنك إعادة رفع وثيقة أوضح من نفس القسم.
+                            </p>
+                          </div>
+                        ) : null}
+
+                        {(verificationStatus === "unverified" || verificationStatus === "rejected") ? (
+                          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+                            <Label htmlFor="id-card-upload" className="text-base font-semibold">
+                              رفع صورة الهوية
+                            </Label>
+                            <Input
+                              id="id-card-upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => setIdCardFile(event.target.files?.[0] || null)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              ارفع صورة واضحة ومقروءة لبطاقة الهوية الوطنية أو أي وثيقة رسمية معتمدة.
+                            </p>
+                            <Button
+                              onClick={handleUploadIdCard}
+                              disabled={isUploadingIdCard || !idCardFile}
+                              className="bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                              {isUploadingIdCard ? (
+                                <>
+                                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                                  جاري الإرسال...
+                                </>
+                              ) : (
+                                <>
+                                  <UploadCloud className="ml-2 h-4 w-4" />
+                                  إرسال طلب التوثيق
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  ) : null}
 
                   <Button onClick={handleSaveProfile} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full sm:w-auto bg-gradient-hero hover:opacity-90">
                     {isLoading ? (

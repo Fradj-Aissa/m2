@@ -26,7 +26,7 @@ function getUnreadCount(notifications: AppNotification[]) {
 }
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUserData } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -146,6 +146,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         setUnreadCount(getUnreadCount(nextNotifications));
         return nextNotifications;
       });
+
+      // Keep auth/session state in sync when admin updates identity verification.
+      if (notification.link === "/settings") {
+        void refreshUserData();
+      }
     });
 
     socketInstance.on("connect_error", (error) => {
@@ -156,7 +161,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       socketInstance.disconnect();
       setSocket(null);
     };
-  }, [currentUser]);
+  }, [currentUser, refreshUserData]);
 
   return (
     <SocketContext.Provider

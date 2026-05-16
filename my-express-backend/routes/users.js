@@ -297,6 +297,7 @@ router.post(
   authMiddleware,
   autoCheckPremiumExpiry,
   identityUpload.fields([
+    { name: "id_card", maxCount: 1 },
     { name: "id_front", maxCount: 1 },
     { name: "id_back", maxCount: 1 },
   ]),
@@ -305,24 +306,28 @@ router.post(
       const uid = req.user?.uid;
       if (!uid) return res.status(401).json({ error: "Invalid user token" });
 
+      const single = req.files?.id_card?.[0];
       const front = req.files?.id_front?.[0];
       const back = req.files?.id_back?.[0];
-      if (!front || !back) {
-        return res.status(400).json({ error: "Both front and back ID images are required" });
+      if (!single && (!front || !back)) {
+        return res.status(400).json({ error: "ID card image is required" });
       }
 
-      const idCardPath = JSON.stringify({
-        front: `/uploads/identity/${front.filename}`,
-        back: `/uploads/identity/${back.filename}`,
-      });
+      const idCardPath = single
+        ? `/uploads/identity/${single.filename}`
+        : JSON.stringify({
+            front: `/uploads/identity/${front.filename}`,
+            back: `/uploads/identity/${back.filename}`,
+          });
 
       const result = await db.query(
         `UPDATE users
          SET id_card_path = $1,
              verification_status = 'pending',
+             rejection_reason = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = $2
-         RETURNING uid, email, name, verification_status, id_card_path, is_premium, premium_until`,
+         RETURNING uid, email, name, verification_status, rejection_reason, id_card_path, is_premium, premium_until`,
         [idCardPath, uid]
       );
 
