@@ -107,7 +107,6 @@ const Subscription = () => {
   const [subscriptions, setSubscriptions] = useState<SubRecord[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
 
-  const isRenter = userData?.type === "renter";
 
   const latestSubscription = subscriptions[0];
   const activeSubscription = useMemo(
@@ -254,20 +253,6 @@ const Subscription = () => {
     return null;
   };
 
-  if (isRenter) {
-    return (
-      <div className="min-h-screen flex flex-col bg-muted/30">
-        <Header />
-        <main className="flex-1 container py-16">
-          <h1 className="text-3xl font-bold mb-4">الاشتراكات</h1>
-          <p className="text-muted-foreground text-lg">
-            ميزات حصرية للمستأجرين قادمة قريبًا! تابعنا لمعرفة التحديثات القادمة.
-          </p>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -459,3 +444,4 @@ const Subscription = () => {
 };
 
 export default Subscription;
+

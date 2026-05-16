@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ApartmentDetail from "./pages/ApartmentDetail";
 import Favorites from "./pages/Favorites";
-import Subscription from "./pages/Subscription";
+import SubscriptionPage from "./pages/SubscriptionPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -49,7 +49,7 @@ const App = () => (
               <Route path="/search" element={<Search />} />
               <Route path="/apartment/:id" element={<ApartmentDetail />} />
               <Route path="/favorites" element={<Favorites />} />
-              <Route path="/subscription" element={<Subscription />} />
+              <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/welcome" element={<Welcome />} />
@@ -157,3 +157,4 @@ const App = () => (
 );
 
 export default App;
+
