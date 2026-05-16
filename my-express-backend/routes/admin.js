@@ -89,8 +89,8 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
     const { id } = req.params;
     const { status, feedback = null } = req.body;
 
-    if (!['active', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'status must be active or rejected' });
+    if (!['approved', 'active', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'status must be approved or rejected' });
     }
 
     const subResult = await db.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
@@ -104,12 +104,12 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
     }
 
     let updated;
-    if (status === 'active') {
+    if (status === 'active' || status === 'approved') {
       const storedPlan = normalizeStoredPlan(subscription.plan_name);
 
       updated = await db.query(
         `UPDATE subscriptions
-         SET status = 'active',
+         SET status = 'approved',
              admin_feedback = $2,
              start_date = NOW(),
              end_date = NOW() + INTERVAL '30 days'
@@ -149,7 +149,7 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
       await createNotification({
         recipientId: subscription.user_id,
         senderId: req.user.uid,
-        type: status === 'active' ? 'approval' : 'system',
+        type: (status === 'active' || status === 'approved') ? 'approval' : 'system',
         apartmentId: null,
         message,
         link: '/subscription',
@@ -553,3 +553,4 @@ router.patch('/properties/:id/verification', authMiddleware, isAdmin, async (req
 });
 
 module.exports = router;
+

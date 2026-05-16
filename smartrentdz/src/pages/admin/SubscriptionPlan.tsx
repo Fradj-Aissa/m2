@@ -37,7 +37,7 @@ const SubscriptionPlan = () => {
     void load();
   }, []);
 
-  const handleStatus = async (id: string, status: "active" | "rejected") => {
+  const handleStatus = async (id: string, status: "approved" | "rejected") => {
     console.log("🔵 handleStatus called with id:", id, "status:", status, "feedback:", feedback[id]);
     setProcessingId(id);
     try {
@@ -46,7 +46,7 @@ const SubscriptionPlan = () => {
       console.log("✅ updateSubscriptionStatus succeeded:", result);
       
       toast({
-        title: status === "active" ? "تم تفعيل الاشتراك" : "تم رفض الطلب",
+        title: status === "approved" ? "تم تفعيل الاشتراك" : "تم رفض الطلب",
       });
       setPending((prev) => prev.filter((s) => s.id !== id));
       setPreview((prev) => (prev?.id === id ? null : prev));
@@ -58,7 +58,7 @@ const SubscriptionPlan = () => {
         feedback: feedback[id]
       });
       toast({
-        title: status === "active" ? "فشل التفعيل" : "فشل الرفض",
+        title: status === "approved" ? "فشل التفعيل" : "فشل الرفض",
         description: err?.message || "Server error",
         variant: "destructive",
       });
@@ -129,7 +129,7 @@ const SubscriptionPlan = () => {
                           >
                             رفض
                           </Button>
-                          <Button disabled={processingId === sub.id} onClick={() => handleStatus(sub.id, "active")}>
+                          <Button disabled={processingId === sub.id} onClick={() => handleStatus(sub.id, "approved")}>
                             تفعيل
                           </Button>
                         </div>
@@ -185,7 +185,7 @@ const SubscriptionPlan = () => {
                 >
                   رفض
                 </Button>
-                <Button disabled={processingId === preview.id} onClick={() => handleStatus(preview.id, "active")}>
+                <Button disabled={processingId === preview.id} onClick={() => handleStatus(preview.id, "approved")}>
                   تفعيل
                 </Button>
               </>
@@ -198,3 +198,4 @@ const SubscriptionPlan = () => {
 };
 
 export default SubscriptionPlan;
+

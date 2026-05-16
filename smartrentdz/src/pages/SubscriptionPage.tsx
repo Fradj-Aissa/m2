@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, Crown, Loader2, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { requestSubscription } from "@/services/subscriptionService";
+import { fetchMySubscriptions, Subscription } from "@/services/subscriptionService";
 
 const premiumFeatures = [
   "وصول مبكر 24 ساعة للإعلانات الجديدة",
@@ -22,15 +23,37 @@ const SubscriptionPage = () => {
   const { toast } = useToast();
   const [receipt, setReceipt] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [latestRequest, setLatestRequest] = useState<Subscription | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(false);
 
   const isPremium = !!userData?.is_premium;
   const isPending = userData?.verification_status === "pending";
+  const requestPending = latestRequest?.status === "pending";
+  const requestApproved = latestRequest?.status === "approved";
+  const requestRejected = latestRequest?.status === "rejected";
+  const uploadLocked = isPending || requestPending || requestApproved;
 
   const remainingDays = useMemo(() => {
     if (!userData?.premium_until) return 0;
     const diff = new Date(userData.premium_until).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [userData?.premium_until]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!userData?.uid) return;
+      setLoadingStatus(true);
+      try {
+        const rows = await fetchMySubscriptions();
+        setLatestRequest(rows?.[0] || null);
+      } catch {
+        setLatestRequest(null);
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+    void load();
+  }, [userData?.uid]);
 
   const handleUpload = async () => {
     if (!receipt) {
@@ -42,6 +65,8 @@ const SubscriptionPage = () => {
       await requestSubscription("Pro", receipt, 500);
       toast({ title: "تم رفع الإيصال! سيتم التحقق منه من الإدارة قريبًا." });
       setReceipt(null);
+      const rows = await fetchMySubscriptions();
+      setLatestRequest(rows?.[0] || null);
     } catch (error: any) {
       toast({
         title: "فشل رفع الإيصال",
@@ -108,15 +133,22 @@ const SubscriptionPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {isPremium ? (
+              {isPremium || requestApproved ? (
                 <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-4">
                   <div className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400"><ShieldCheck className="h-5 w-5" /> شكرًا لك، أنت عضو Premium</div>
                   <p className="text-sm text-muted-foreground mt-1">الأيام المتبقية: {remainingDays}</p>
+                  {latestRequest?.start_date ? <p className="text-sm text-muted-foreground mt-1">بداية الاشتراك: {new Date(latestRequest.start_date).toLocaleDateString("ar-DZ")}</p> : null}
+                  {latestRequest?.end_date ? <p className="text-sm text-muted-foreground mt-1">نهاية الاشتراك: {new Date(latestRequest.end_date).toLocaleDateString("ar-DZ")}</p> : null}
                 </div>
-              ) : isPending ? (
+              ) : uploadLocked ? (
                 <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
                   <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400"><Clock3 className="h-5 w-5" /> التحقق قيد المراجعة</div>
                   <p className="text-sm text-muted-foreground mt-1">تم استلام إيصالك وهو الآن قيد المراجعة من الإدارة.</p>
+                </div>
+              ) : requestRejected ? (
+                <div className="rounded-xl border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4">
+                  <div className="font-semibold text-red-700 dark:text-red-400">تم رفض الاشتراك</div>
+                  <p className="text-sm text-muted-foreground mt-1">السبب: {latestRequest?.admin_feedback || "لم يتم تقديم سبب"}</p>
                 </div>
               ) : (
                 <>
@@ -129,6 +161,7 @@ const SubscriptionPage = () => {
                   </div>
                 </>
               )}
+              {loadingStatus ? <p className="text-xs text-muted-foreground">جاري تحديث حالة الاشتراك...</p> : null}
             </CardContent>
           </Card>
         </section>
