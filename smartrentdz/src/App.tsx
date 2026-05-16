@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ApartmentDetail from "./pages/ApartmentDetail";
 import Favorites from "./pages/Favorites";
-import SubscriptionPage from "./pages/SubscriptionPage";
+import SubscriptionEntry from "./pages/SubscriptionEntry";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -53,7 +53,7 @@ const App = () => (
                 path="/subscription"
                 element={
                   <ProtectedRoute>
-                    <SubscriptionPage />
+                    <SubscriptionEntry />
                   </ProtectedRoute>
                 }
               />
@@ -164,4 +164,5 @@ const App = () => (
 );
 
 export default App;
+
 
