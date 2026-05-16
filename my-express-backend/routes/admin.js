@@ -141,15 +141,15 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
     }
 
     try {
-      const message =
-        status === 'active'
-          ? `✅ تم تفعيل اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `ملاحظة: ${feedback}` : ''}`
-          : `❌ تم رفض اشتراكك في باقة ${subscription.plan_name}. ${feedback ? `السبب: ${feedback}` : ''}`;
+      const isApproved = status === 'active' || status === 'approved';
+      const message = isApproved
+        ? `? ?? ????? ??????? ?? ???? ${subscription.plan_name}. ${feedback ? `??????: ${feedback}` : ''}`
+        : `? ?? ??? ??????? ?? ???? ${subscription.plan_name}. ${feedback ? `?????: ${feedback}` : ''}`;
 
       await createNotification({
         recipientId: subscription.user_id,
         senderId: req.user.uid,
-        type: (status === 'active' || status === 'approved') ? 'approval' : 'system',
+        type: isApproved ? 'approval' : 'system',
         apartmentId: null,
         message,
         link: '/subscription',
