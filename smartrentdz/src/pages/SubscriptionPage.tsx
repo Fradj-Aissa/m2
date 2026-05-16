@@ -92,6 +92,16 @@ const SubscriptionPage = () => {
         </section>
 
         <section className="container py-12">
+          {requestRejected ? (
+            <div className="mb-6 rounded-lg border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-red-700 dark:text-red-400">
+              <div className="font-semibold">تم رفض الاشتراك السابق</div>
+              <div className="text-sm mt-1">
+                السبب: {latestRequest?.admin_feedback || "لم يتم تقديم سبب"}
+              </div>
+              <div className="text-sm mt-1">يمكنك رفع إيصال جديد وإعادة التقديم الآن.</div>
+            </div>
+          ) : null}
+
           <div className="grid gap-6 md:grid-cols-2 mb-8">
           <Card className="border-border shadow-sm">
             <CardHeader>
@@ -144,11 +154,6 @@ const SubscriptionPage = () => {
                 <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
                   <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400"><Clock3 className="h-5 w-5" /> التحقق قيد المراجعة</div>
                   <p className="text-sm text-muted-foreground mt-1">تم استلام إيصالك وهو الآن قيد المراجعة من الإدارة.</p>
-                </div>
-              ) : requestRejected ? (
-                <div className="rounded-xl border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4">
-                  <div className="font-semibold text-red-700 dark:text-red-400">تم رفض الاشتراك</div>
-                  <p className="text-sm text-muted-foreground mt-1">السبب: {latestRequest?.admin_feedback || "لم يتم تقديم سبب"}</p>
                 </div>
               ) : (
                 <>
