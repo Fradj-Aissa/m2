@@ -51,7 +51,6 @@ const SubscriptionPlan = () => {
       setPending((prev) => prev.filter((s) => s.id !== id));
       setPreview((prev) => (prev?.id === id ? null : prev));
       setFeedback((prev) => ({ ...prev, [id]: "" }));
-      await load();
     } catch (err: any) {
       console.error("❌ Full Error in handleStatus:", {
         message: err?.message,

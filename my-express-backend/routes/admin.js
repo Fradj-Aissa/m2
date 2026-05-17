@@ -97,13 +97,19 @@ router.get('/stats', authMiddleware, isAdmin, async (req, res) => {
  * PATCH /api/admin/subscriptions/:id/status
  * body: { status: 'active' | 'rejected', feedback?: string }
  */
-router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, res) => {
+async function adminUpdateSubscriptionStatusHandler(req, res) {
   try {
     const { id } = req.params;
     const { status, feedback = null } = req.body;
 
     if (!['approved', 'active', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'status must be approved or rejected' });
+    }
+
+    // Strict UUID validation to prevent DB 500 errors on malformed input
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(404).json({ error: 'Subscription not found' });
     }
 
     const subResult = await db.query('SELECT * FROM subscriptions WHERE id = $1', [id]);
@@ -182,7 +188,10 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
     console.error('Error updating subscription status (admin):', error);
     res.status(500).json({ error: 'Failed to update subscription status' });
   }
-});
+}
+
+router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, adminUpdateSubscriptionStatusHandler);
+router.put('/subscriptions/:id/status', authMiddleware, isAdmin, adminUpdateSubscriptionStatusHandler);
 
 /**
  * GET /api/admin/users
@@ -227,18 +236,17 @@ router.get('/verifications/pending', authMiddleware, isAdmin, async (_req, res) 
       `SELECT uid, name, email, phone, type, account_type, id_card_path, verification_status, rejection_reason, created_at
        FROM users
        WHERE verification_status = 'pending'
-         AND (type = 'landlord' OR account_type = 'owner')
        ORDER BY created_at DESC`
     );
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching pending owner verifications:', error);
-    res.status(500).json({ error: 'Failed to fetch pending owner verifications' });
+    console.error('Error fetching pending verifications:', error);
+    res.status(500).json({ error: 'Failed to fetch pending verifications' });
   }
 });
 
-router.put('/verifications/:uid/status', authMiddleware, isAdmin, async (req, res) => {
+async function adminUpdateVerificationStatusHandler(req, res) {
   try {
     const { uid } = req.params;
     const { status, reason = null } = req.body;
@@ -305,7 +313,10 @@ router.put('/verifications/:uid/status', authMiddleware, isAdmin, async (req, re
     console.error('Error updating owner verification status:', error);
     res.status(500).json({ error: 'Failed to update owner verification status' });
   }
-});
+}
+
+router.put('/verifications/:uid/status', authMiddleware, isAdmin, adminUpdateVerificationStatusHandler);
+router.patch('/verifications/:uid/status', authMiddleware, isAdmin, adminUpdateVerificationStatusHandler);
 
 /**
  * DELETE /api/admin/users/:id
