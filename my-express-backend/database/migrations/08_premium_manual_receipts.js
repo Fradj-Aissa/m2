@@ -7,22 +7,23 @@ module.exports.up = async (client) => {
       ADD COLUMN IF NOT EXISTS id_card_path TEXT NULL;
   `);
 
+  // Drop existing constraint unconditionally before touching data or re-adding it
   await client.query(`
-    DO $$
-    BEGIN
-      IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name='users' AND column_name='verification_status'
-      ) THEN
-        ALTER TABLE users
-        DROP CONSTRAINT IF EXISTS users_verification_status_check;
+    ALTER TABLE users
+      DROP CONSTRAINT IF EXISTS users_verification_status_check;
+  `);
 
-        ALTER TABLE users
-        ADD CONSTRAINT users_verification_status_check
-        CHECK (verification_status IN ('none', 'pending', 'verified', 'rejected'));
-      END IF;
-    END $$;
+  // Normalize any out-of-range values that may already exist in the DB
+  await client.query(`
+    UPDATE users
+    SET verification_status = 'none'
+    WHERE verification_status NOT IN ('none', 'pending', 'verified', 'rejected');
+  `);
+
+  await client.query(`
+    ALTER TABLE users
+      ADD CONSTRAINT users_verification_status_check
+      CHECK (verification_status IN ('none', 'pending', 'verified', 'rejected'));
   `);
 
   await client.query(`
