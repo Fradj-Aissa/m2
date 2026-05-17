@@ -77,7 +77,16 @@ async function runMigration(client, filename) {
     console.log(`[migrations] ${filename} applied`);
   } catch (err) {
     await client.query('ROLLBACK');
-    throw err;
+    if (err.code === '42710' || err.message.includes('already exists')) {
+      console.warn(`[migrations] Warning: Migration ${filename} failed because an object already exists. Continuing server startup:`, err.message);
+      try {
+        await recordApplied(client, filename);
+      } catch (recordErr) {
+        console.error(`[migrations] Failed to record migration ${filename} as applied:`, recordErr.message);
+      }
+    } else {
+      throw err;
+    }
   }
 }
 

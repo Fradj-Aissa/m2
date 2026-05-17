@@ -6,6 +6,11 @@ module.exports.up = async (client) => {
   `);
 
   await client.query(`
+    ALTER TABLE users
+      DROP CONSTRAINT IF EXISTS users_verification_status_check;
+  `);
+
+  await client.query(`
     UPDATE users
     SET verification_status = 'unverified'
     WHERE verification_status IS NULL OR verification_status = 'none';
@@ -14,11 +19,6 @@ module.exports.up = async (client) => {
   await client.query(`
     ALTER TABLE users
       ALTER COLUMN verification_status SET DEFAULT 'unverified';
-  `);
-
-  await client.query(`
-    ALTER TABLE users
-      DROP CONSTRAINT IF EXISTS users_verification_status_check;
   `);
 
   await client.query(`
