@@ -152,15 +152,16 @@ async function updateStatusHandler(req, res) {
         `UPDATE subscriptions SET status = 'approved', admin_feedback = $2, start_date = NOW(), end_date = NOW() + INTERVAL '30 days' WHERE id = $1 RETURNING *`,
         [id, feedback]
       );
+      const storedPlan = normalizeStoredPlan(subscription.plan_name);
       await db.query(
         `UPDATE users
          SET is_premium = TRUE,
              premium_until = NOW() + INTERVAL '30 days',
-             current_plan = 'pro',
+             current_plan = $3,
              subscription_id = $2,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = $1`,
-        [subscription.user_id, id]
+        [subscription.user_id, id, storedPlan]
       );
     } else {
       updated = await db.query(
