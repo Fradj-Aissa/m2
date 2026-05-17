@@ -85,9 +85,10 @@ const paymentDetails = [
   { label: "CCP + Key", value: "0123456789-01" },
 ];
 
-const subscriptionStatusLabel: Record<SubRecord["status"], string> = {
+const subscriptionStatusLabel: Record<string, string> = {
   pending: "قيد المراجعة",
   active: "مفعّل",
+  approved: "مفعّل",
   expired: "منتهي",
   rejected: "مرفوض",
 };
@@ -98,7 +99,7 @@ const formatSubscriptionDate = (value?: string | null) => {
 };
 
 const Subscription = () => {
-  const { userData } = useAuth();
+  const { userData, refreshUserData } = useAuth();
   const { toast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanName | null>(null);
@@ -110,7 +111,7 @@ const Subscription = () => {
 
   const latestSubscription = subscriptions[0];
   const activeSubscription = useMemo(
-    () => subscriptions.find((subscription) => subscription.status === "active"),
+    () => subscriptions.find((subscription) => subscription.status === "active" || subscription.status === "approved"),
     [subscriptions]
   );
   const activePlan: PlanName = useMemo(() => {
@@ -141,6 +142,9 @@ const Subscription = () => {
       try {
         const data = await fetchMySubscriptions();
         setSubscriptions(data);
+        if (refreshUserData) {
+          await refreshUserData();
+        }
       } catch (error) {
         console.error("Failed to load subscriptions", error);
       } finally {
