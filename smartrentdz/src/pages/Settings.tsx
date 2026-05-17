@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,12 +64,38 @@ const Settings = () => {
     priceChanges: true,
   });
 
-  const isOwnerAccount =
-    userData?.type === "landlord" ||
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const isOwner =
+    userData?.role === "owner" ||
     userData?.account_type === "owner" ||
+    userData?.type === "landlord" ||
     userData?.account_type === "landlord";
 
+  const isTenant =
+    userData?.role === "tenant" ||
+    userData?.type === "renter" ||
+    userData?.account_type === "renter" ||
+    (!userData?.role && !userData?.type && !userData?.account_type);
+
+  const isPremiumTenant = isTenant && !!userData?.is_premium;
+  const showVerificationSection = isOwner || isPremiumTenant;
   const verificationStatus = userData?.verification_status || "unverified";
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (refreshUserData) {
+          await refreshUserData();
+        }
+      } catch (error) {
+        console.error("Mount refresh error:", error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    void init();
+  }, []);
 
   useEffect(() => {
     if (userData) {
@@ -534,7 +561,12 @@ const Settings = () => {
                     <p className="text-xs text-muted-foreground text-right">أرقام جزائرية: يجب أن تبدأ بـ 05 أو 06 أو 07 وتحتوي على 10 أرقام</p>
                   </div>
 
-                  {isOwnerAccount ? (
+                  {isInitialLoading ? (
+                    <Card className="border-border bg-card p-6 flex flex-col items-center justify-center min-h-[200px]">
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                      <p className="text-sm text-muted-foreground mt-4">جاري تحميل بيانات التوثيق...</p>
+                    </Card>
+                  ) : showVerificationSection ? (
                     <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-background to-sky-50/70 dark:border-emerald-950/60 dark:from-emerald-950/20 dark:to-slate-950">
                       <CardHeader className="space-y-2">
                         <CardTitle className="flex items-center gap-2 text-xl">
@@ -542,7 +574,9 @@ const Settings = () => {
                           توثيق الهوية
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                          توثيق هوية المالك يضيف شارة ثقة لملفك الشخصي ويطمئن المستأجرين عند تصفح عقاراتك.
+                          {isOwner
+                            ? "توثيق هوية المالك يضيف شارة ثقة لملفك الشخصي ويطمئن المستأجرين عند تصفح عقاراتك."
+                            : "توثيق هوية المستأجر يمنحك شارة مستأجر موثّق لزيادة فرص قبول طلبات تأجيرك من الملاك."}
                         </p>
                       </CardHeader>
                       <CardContent className="space-y-4">
@@ -553,7 +587,9 @@ const Settings = () => {
                               حساب موثق
                             </div>
                             <p className="mt-2 text-sm text-muted-foreground">
-                              شارة التوثيق تظهر الآن بجانب اسمك في تفاصيل العقارات لزيادة ثقة المستأجرين.
+                              {isOwner
+                                ? "شارة التوثيق تظهر الآن بجانب اسمك في تفاصيل العقارات لزيادة ثقة المستأجرين."
+                                : "شارة مستأجر موثّق تظهر الآن على ملفك الشخصي لزيادة فرص قبولك من قبل الملاك."}
                             </p>
                           </div>
                         ) : null}
@@ -602,7 +638,7 @@ const Settings = () => {
                             <Button
                               onClick={handleUploadIdCard}
                               disabled={isUploadingIdCard || !idCardFile}
-                              className="bg-emerald-600 text-white hover:bg-emerald-700"
+                              className="bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
                             >
                               {isUploadingIdCard ? (
                                 <>
@@ -620,7 +656,34 @@ const Settings = () => {
                         ) : null}
                       </CardContent>
                     </Card>
-                  ) : null}
+                  ) : (
+                    <Card className="border-dashed border-amber-300 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/5 relative overflow-hidden rounded-2xl p-6 shadow-sm text-right">
+                      <div className="absolute -left-12 -top-12 h-32 w-32 rounded-full bg-amber-400/10 blur-2xl" />
+                      <div className="absolute -right-12 -bottom-12 h-32 w-32 rounded-full bg-yellow-400/10 blur-2xl" />
+                      
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                        <div className="space-y-2 text-right flex-1 w-full">
+                          <div className="flex items-center justify-start gap-2 flex-wrap">
+                            <ShieldCheck className="h-6 w-6 text-amber-500" />
+                            <h4 className="text-xl font-bold text-foreground">توثيق الهوية والحساب</h4>
+                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-0 text-xs px-2 py-0.5 font-semibold">
+                              ميزة Premium
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground text-sm leading-relaxed max-w-xl">
+                            تتيح لك هذه الميزة إرسال وثيقة هويتك للحصول على شارة **"مستأجر موثّق"** الزرقاء، مما يزيد ثقة الملاك بك ويسرّع قبول طلبات الإيجار الخاصة بك بنسبة 85%. هذه الميزة متاحة فقط للأعضاء المميزين.
+                          </p>
+                        </div>
+                        
+                        <Button 
+                          onClick={() => navigate("/subscription")}
+                          className="bg-gradient-hero text-white font-semibold shadow-lg hover:opacity-90 transition-all duration-300 w-full md:w-auto px-6 h-12 rounded-xl"
+                        >
+                          اشترك في Premium للتفعيل
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
 
                   <Button onClick={handleSaveProfile} disabled={isLoading} size="lg" className="gap-2 font-semibold w-full sm:w-auto bg-gradient-hero hover:opacity-90">
                     {isLoading ? (

@@ -132,7 +132,7 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
       );
 
       await db.query(
-        `UPDATE users SET current_plan = $2, subscription_id = $1 WHERE uid = $3`,
+        `UPDATE users SET current_plan = $2, subscription_id = $1, is_premium = TRUE, premium_until = NOW() + INTERVAL '30 days', updated_at = CURRENT_TIMESTAMP WHERE uid = $3`,
         [id, storedPlan, subscription.user_id]
       );
     } else {
