@@ -16,6 +16,8 @@ export interface Subscription {
   start_date?: string | null;
   end_date?: string | null;
   created_at?: string;
+  user_name?: string;
+  user_email?: string;
 }
 
 export async function requestSubscription(_plan: PlanName, receipt: File, amount = 3900) {
@@ -53,7 +55,7 @@ export async function fetchPendingSubscriptions() {
 export async function updateSubscriptionStatus(id: string, status: "approved" | "rejected", feedback?: string | null) {
   const token = localStorage.getItem("token");
   const apiBase = API_BASE_URL.replace(/\/+$/, "");
-  const response = await axios.patch<{ subscription: Subscription }>(`${apiBase}/admin/subscriptions/${id}/status`, { status, feedback }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const response = await axios.patch<{ subscription: Subscription }>(`${apiBase}/subscriptions/admin/${id}/status`, { status, feedback }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   return response.data.subscription;
 }
 

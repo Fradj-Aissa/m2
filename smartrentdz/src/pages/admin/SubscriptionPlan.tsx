@@ -106,7 +106,9 @@ const SubscriptionPlan = () => {
                               {sub.price.toLocaleString("ar-DZ")} د.ج
                             </span>
                           </div>
-                          <div className="text-sm text-foreground">المستخدم: {sub.user_id}</div>
+                          <div className="text-sm text-foreground">
+                            <span className="font-semibold">المستخدم:</span> {sub.user_name || sub.user_id} {sub.user_email ? `(${sub.user_email})` : ""}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             {sub.created_at ? format(new Date(sub.created_at), "PPP p", { locale: arDZ }) : ""}
                           </div>
