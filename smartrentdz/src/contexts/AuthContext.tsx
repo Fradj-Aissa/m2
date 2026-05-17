@@ -94,6 +94,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const normalizedUser = {
         ...user,
         current_plan: normalizePlanName(user.current_plan),
+        is_premium: user.current_plan ? (user.current_plan.toLowerCase() !== 'free') : false,
       };
 
       localStorage.setItem("token", token);
@@ -228,6 +229,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const updatedUser = {
         ...response.data,
         current_plan: normalizePlanName(response.data.current_plan),
+        is_premium: response.data.current_plan ? (response.data.current_plan.toLowerCase() !== 'free') : false,
       };
       
       setCurrentUser(updatedUser);

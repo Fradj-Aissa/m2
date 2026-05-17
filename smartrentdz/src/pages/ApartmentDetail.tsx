@@ -83,6 +83,19 @@ const ApartmentDetail = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const isOwner =
+    userData?.role === "owner" ||
+    userData?.account_type === "owner" ||
+    userData?.type === "landlord" ||
+    userData?.account_type === "landlord";
+
+  const isTenant =
+    !userData ||
+    userData?.role === "tenant" ||
+    userData?.type === "renter" ||
+    userData?.account_type === "renter" ||
+    (!userData?.role && !userData?.type && !userData?.account_type);
+
   const handleTriggerAIAnalysis = () => {
     if (!apartment) return;
     setAnalyzing(true);
@@ -482,7 +495,7 @@ ${score === "excellent" ? "✓ ننصحك بالمبادرة للاتصال با
                   </div>
 
                   {/* AI Price Intelligence Premium Feature */}
-                  {(!userData || userData.role === 'tenant' || userData.role === 'renter') ? (
+                  {isTenant ? (
                     <div className="mb-4">
                       {userData?.is_premium ? (
                         <Button

@@ -39,6 +39,7 @@ function normalizeUserPlan(user) {
 
   return {
     ...user,
+    is_premium: (user.current_plan ? String(user.current_plan).trim().toLowerCase() !== 'free' : false),
     current_plan:
       user.current_plan === undefined ? user.current_plan : normalizeDisplayPlan(user.current_plan),
   };
@@ -250,7 +251,7 @@ async function handleGoogleAuth(req, res) {
 
     res.json({
       message: "Authentication successful",
-      user: safeUser,
+      user: normalizeUserPlan(safeUser),
       token: jwtToken,
       isNewUser,
       requiresCompleteProfile,

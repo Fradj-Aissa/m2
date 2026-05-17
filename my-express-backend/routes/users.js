@@ -30,7 +30,9 @@ router.get("/:uid", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json(result.rows[0]);
+    const user = result.rows[0];
+    const is_premium = user.current_plan ? (user.current_plan.toLowerCase() !== 'free') : false;
+    res.json({ ...user, is_premium });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch user" });
