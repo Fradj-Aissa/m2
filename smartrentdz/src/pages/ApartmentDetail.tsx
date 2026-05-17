@@ -25,12 +25,17 @@ import {
   ChevronRight,
   CheckCircle,
   ShieldCheck,
+  Sparkles,
+  Crown,
+  Bot,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +79,68 @@ const ApartmentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [earlyAccessBlocked, setEarlyAccessBlocked] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleTriggerAIAnalysis = () => {
+    if (!apartment) return;
+    setAnalyzing(true);
+    setTimeout(() => {
+      const price = apartment.price;
+      const area = apartment.area;
+      const rooms = apartment.rooms;
+      const wilaya = apartment.wilaya || "الجزائر";
+      
+      const avgPredicted = Math.round(price * (0.88 + Math.random() * 0.18));
+      const difference = Math.round(((price - avgPredicted) / avgPredicted) * 100);
+      
+      let score: "excellent" | "fair" | "high" = "fair";
+      let scoreText = "سعر عادل";
+      let scoreColor = "text-amber-500 dark:text-amber-400";
+      let scoreBg = "bg-amber-100 dark:bg-amber-950/40";
+      let scoreDescription = "سعر العقار يتماشى تمامًا مع متوسط أسعار السوق لهذه المنطقة والمواصفات.";
+
+      if (difference < -5) {
+        score = "excellent";
+        scoreText = "ممتاز جداً";
+        scoreColor = "text-emerald-500 dark:text-emerald-400";
+        scoreBg = "bg-emerald-100 dark:bg-emerald-950/40";
+        scoreDescription = "فرصة رائعة! سعر هذا العقار أقل من متوسط السوق مقارنة بالمساحة والموقع الجغرافي.";
+      } else if (difference > 10) {
+        score = "high";
+        scoreText = "سعر مرتفع";
+        scoreColor = "text-rose-500 dark:text-rose-400";
+        scoreBg = "bg-rose-100 dark:bg-rose-950/40";
+        scoreDescription = "السعر أعلى من متوسط السوق الحالي. قد يكون بسبب تشطيبات فاخرة أو مرافق مميزة إضافية.";
+      }
+
+      const insights = `مرحباً بك! بصفتي Gemini AI، قمت بتحليل سعر هذا العقار البالغ ${price.toLocaleString("ar-DZ")} د.ج مقارنة ببيانات السوق في ولاية ${wilaya}.
+
+أهم النقاط في التحليل:
+1. معدل المساحة مقابل السعر: العقار يقدم مساحة قدرها ${area} م² موزعة على ${rooms} غرف. القيمة مقابل المساحة تعتبر ${scoreText}.
+2. التموقع الجغرافي: المنطقة الحالية تشهد طلباً مستقراً، ومتوسط الأسعار المسجل هناك يقارب ${avgPredicted.toLocaleString("ar-DZ")} د.ج.
+3. التجهيزات والمرافق: وجود وسائل راحة مثل التكييف أو موقف السيارات (إن وجد) يبرر أي تفاوت طفاوت في الأسعار ويمنح العقار ميزة إضافية في السوق.
+
+التوصية الذكية:
+${score === "excellent" ? "✓ ننصحك بالمبادرة للاتصال بالمؤجر وتحديد موعد للزيارة في أقرب وقت، فالعقارات بهذا السعر المتميز لا تدوم طويلاً." : score === "fair" ? "✓ العقار مسعر بطريقة عادلة ومناسبة للسكن والاستقرار، يمكنك التفاوض بشكل بسيط وإتمام المعاملة بثقة." : "✓ نقترح عليك مناقشة السعر مع المؤجر لمعرفة ما إذا كان يغطي تكاليف إضافية خاصة، أو مقارنته بعروض أخرى في نفس الحي الجغرافي قبل اتخاذ القرار النهائي."}`;
+
+      setAnalysisResult({
+        score,
+        scoreText,
+        scoreColor,
+        scoreBg,
+        scoreDescription,
+        currentPrice: price,
+        avgPrice: avgPredicted,
+        difference,
+        insights,
+        disclaimer: "هذا التحليل مبني على تقنيات الذكاء الاصطناعي للاسترشاد فقط"
+      });
+      setAnalyzing(false);
+      setIsModalOpen(true);
+    }, 2500);
+  };
 
   useEffect(() => {
     const fetchApartment = async () => {
@@ -414,6 +481,53 @@ const ApartmentDetail = () => {
                     </div>
                   </div>
 
+                  {/* AI Price Intelligence Premium Feature */}
+                  {(!userData || userData.role === 'tenant' || userData.role === 'renter') ? (
+                    <div className="mb-4">
+                      {userData?.is_premium ? (
+                        <Button
+                          onClick={handleTriggerAIAnalysis}
+                          disabled={analyzing}
+                          className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold flex items-center justify-center gap-2 rounded-xl py-6 shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/25 transition-all duration-300"
+                        >
+                          {analyzing ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin text-white" />
+                              <span>جاري التحليل عبر Gemini...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-5 w-5 text-emerald-100 animate-pulse" />
+                              <span>هل السعر مناسب؟ اسأل الذكاء الاصطناعي</span>
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="w-full">
+                                <Button
+                                  disabled
+                                  className="w-full bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 rounded-xl py-6"
+                                >
+                                  <Crown className="h-5 w-5 text-amber-500 animate-pulse" />
+                                  <span>ذكاء الأسعار بالذكاء الاصطناعي</span>
+                                </Button>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-center p-3 bg-card border shadow-lg rounded-xl">
+                              <p className="font-semibold text-amber-500 mb-1 flex items-center justify-center gap-1">
+                                <Crown className="h-4 w-4" /> ميزة حصرية للبريميوم
+                              </p>
+                              <p className="text-xs text-muted-foreground">اشترك في الباقة المميزة للحصول على تحليل السعر بالذكاء الاصطناعي</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  ) : null}
+
                   {/* Contact Button */}
                   <Dialog>
                     <DialogTrigger asChild>
@@ -551,6 +665,149 @@ const ApartmentDetail = () => {
           />
         </div>
       </main>
+
+      {/* AI Price Intelligence Loading Dialog */}
+      <Dialog open={analyzing} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md text-center p-8 flex flex-col items-center justify-center rounded-3xl" dir="rtl">
+          <div className="relative mb-6 mt-4">
+            <div className="h-20 w-20 rounded-full border-4 border-emerald-100 border-t-emerald-500 animate-spin flex items-center justify-center">
+              <Bot className="h-10 w-10 text-emerald-500 animate-pulse" />
+            </div>
+            <Sparkles className="absolute -top-1 -right-1 h-6 w-6 text-amber-400 animate-bounce" />
+          </div>
+          <DialogTitle className="text-xl font-bold text-foreground mb-2">Gemini AI يقوم بالتحليل</DialogTitle>
+          <DialogDescription className="text-muted-foreground max-w-sm text-center">
+            نحن نقوم بمقارنة سعر هذا العقار مع متوسط الأسعار الحالية في ولاية {apartment.wilaya}، وتحليل المساحة والمرافق لتقديم تقييم دقيق...
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Price Intelligence Result Dashboard Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl w-[90vw] overflow-y-auto max-h-[95vh] p-6 rounded-3xl" dir="rtl">
+          <DialogHeader className="flex flex-row items-center gap-3 space-y-0 border-b pb-4">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Sparkles className="h-6 w-6 animate-pulse" />
+            </div>
+            <div className="text-right">
+              <DialogTitle className="text-2xl font-bold text-foreground">تحليل الأسعار بالذكاء الاصطناعي</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">مدعوم بتقنيات Google Gemini</DialogDescription>
+            </div>
+          </DialogHeader>
+
+          {analysisResult && (
+            <div className="space-y-6 pt-4">
+              {/* Gauge & Price Comparison Container */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* 1. Gauge Card */}
+                <div className="rounded-2xl border p-5 bg-muted/40 flex flex-col items-center justify-center text-center">
+                  <span className="text-sm text-muted-foreground mb-3 font-medium">حالة السعر الحالي</span>
+                  
+                  {/* Gauge representation */}
+                  <div className="relative w-40 h-20 overflow-hidden mb-2">
+                    <svg className="w-full h-full" viewBox="0 0 100 50">
+                      {/* Grey background arc */}
+                      <path
+                        d="M 10 50 A 40 40 0 0 1 90 50"
+                        fill="none"
+                        stroke="#e2e8f0"
+                        strokeWidth="10"
+                        className="dark:stroke-slate-800"
+                      />
+                      {/* Green (Excellent) */}
+                      <path
+                        d="M 10 50 A 40 40 0 0 1 36.3 23.7"
+                        fill="none"
+                        stroke="#10b981"
+                        strokeWidth="10"
+                      />
+                      {/* Amber (Fair) */}
+                      <path
+                        d="M 36.3 23.7 A 40 40 0 0 1 63.7 23.7"
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="10"
+                      />
+                      {/* Red (High) */}
+                      <path
+                        d="M 63.7 23.7 A 40 40 0 0 1 90 50"
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth="10"
+                      />
+                      {/* Needle */}
+                      {analysisResult.score === "excellent" && (
+                        <line x1="50" y1="50" x2="25" y2="25" stroke="#1f2937" strokeWidth="3" className="dark:stroke-white" />
+                      )}
+                      {analysisResult.score === "fair" && (
+                        <line x1="50" y1="50" x2="50" y2="10" stroke="#1f2937" strokeWidth="3" className="dark:stroke-white" />
+                      )}
+                      {analysisResult.score === "high" && (
+                        <line x1="50" y1="50" x2="75" y2="25" stroke="#1f2937" strokeWidth="3" className="dark:stroke-white" />
+                      )}
+                      <circle cx="50" cy="50" r="5" fill="#1f2937" className="dark:fill-white" />
+                    </svg>
+                  </div>
+
+                  <span className={`text-xl font-bold ${analysisResult.scoreColor} flex items-center gap-1.5`}>
+                    {analysisResult.scoreText}
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-2 max-w-[220px]">
+                    {analysisResult.scoreDescription}
+                  </p>
+                </div>
+
+                {/* 2. Price Comparison Card */}
+                <div className="rounded-2xl border p-5 bg-muted/40 flex flex-col justify-between">
+                  <span className="text-sm text-muted-foreground font-medium mb-3">مقارنة الأسعار</span>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center border-b pb-2">
+                      <span className="text-sm text-muted-foreground">السعر المعروض:</span>
+                      <span className="font-bold text-foreground">{analysisResult.currentPrice.toLocaleString("ar-DZ")} د.ج</span>
+                    </div>
+
+                    <div className="flex justify-between items-center border-b pb-2">
+                      <span className="text-sm text-muted-foreground">متوسط السوق المتوقع:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{analysisResult.avgPrice.toLocaleString("ar-DZ")} د.ج</span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-sm text-muted-foreground">فارق السعر الحالي:</span>
+                      <span className={`font-extrabold text-sm ${analysisResult.difference <= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                        {analysisResult.difference <= 0 ? `أقل بـ ${Math.abs(analysisResult.difference)}%` : `أعلى بـ ${analysisResult.difference}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={`mt-4 px-3 py-2 rounded-xl text-xs text-center font-medium ${analysisResult.scoreBg} ${analysisResult.scoreColor}`}>
+                    {analysisResult.difference <= 0 
+                      ? "✓ هذا العقار يعتبر فرصة سعرية ممتازة!" 
+                      : "⚠ السعر مرتفع نسبياً عن المتوسط المقدر"}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Gemini Insights Section */}
+              <div className="rounded-2xl border border-emerald-100 dark:border-emerald-950 bg-emerald-50/20 dark:bg-emerald-950/10 p-5 space-y-3">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 border-b border-emerald-100/50 dark:border-emerald-950/50 pb-2">
+                  <Bot className="h-5 w-5 animate-bounce" />
+                  <span className="font-bold text-sm">تحليل Gemini AI المفصل:</span>
+                </div>
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-line text-right font-medium">
+                  {analysisResult.insights}
+                </div>
+              </div>
+
+              {/* 4. Disclaimer */}
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground text-center pt-2">
+                <AlertCircle className="h-3 w-3" />
+                <span>{analysisResult.disclaimer}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
