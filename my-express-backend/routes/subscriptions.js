@@ -156,15 +156,26 @@ async function updateStatusHandler(req, res) {
         `UPDATE users
          SET is_premium = TRUE,
              premium_until = NOW() + INTERVAL '30 days',
-             current_plan = 'Pro',
+             current_plan = 'pro',
+             subscription_id = $2,
              updated_at = CURRENT_TIMESTAMP
          WHERE uid = $1`,
-        [subscription.user_id]
+        [subscription.user_id, id]
       );
     } else {
       updated = await db.query(
         `UPDATE subscriptions SET status = 'rejected', admin_feedback = $2, start_date = NULL, end_date = NULL WHERE id = $1 RETURNING *`,
         [id, feedback]
+      );
+      await db.query(
+        `UPDATE users
+         SET subscription_id = NULL,
+             current_plan = 'free',
+             is_premium = FALSE,
+             premium_until = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE uid = $1`,
+        [subscription.user_id]
       );
     }
 
