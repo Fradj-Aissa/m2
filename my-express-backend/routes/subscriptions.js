@@ -83,8 +83,8 @@ async function notifyStatusChange({ subscription, status, feedback, adminId }) {
   try {
     const message =
       status === 'approved'
-        ? `? ?? ????? ??????? ??????. ${feedback ? `??????: ${feedback}` : ''}`
-        : `? ?? ??? ??? ???????? ??????. ${feedback ? `?????: ${feedback}` : ''}`;
+        ? `لقد تم قبول طلب الاشتراك الخاص بك بنجاح. ${feedback ? `ملاحظات: ${feedback}` : ''}`
+        : `لقد تم رفض طلب الاشتراك الخاص بك. ${feedback ? `السبب: ${feedback}` : ''}`;
 
     await createNotification({ recipientId: subscription.user_id, senderId: adminId, type: status === 'approved' ? 'approval' : 'system', apartmentId: null, message, link: '/subscription' });
   } catch (notifyError) {

@@ -156,8 +156,8 @@ router.patch('/subscriptions/:id/status', authMiddleware, isAdmin, async (req, r
     try {
       const isApproved = status === 'active' || status === 'approved';
       const message = isApproved
-        ? `? ?? ????? ??????? ?? ???? ${subscription.plan_name}. ${feedback ? `??????: ${feedback}` : ''}`
-        : `? ?? ??? ??????? ?? ???? ${subscription.plan_name}. ${feedback ? `?????: ${feedback}` : ''}`;
+        ? `لقد تم قبول طلب الاشتراك الخاص بك في باقة ${subscription.plan_name} بنجاح. ${feedback ? `ملاحظات: ${feedback}` : ''}`
+        : `لقد تم رفض طلب الاشتراك الخاص بك في باقة ${subscription.plan_name}. ${feedback ? `السبب: ${feedback}` : ''}`;
 
       await createNotification({
         recipientId: subscription.user_id,
